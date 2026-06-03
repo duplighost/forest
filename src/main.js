@@ -13,6 +13,7 @@ import { Weather } from './world/Weather.js';
 import { Wildlife } from './world/Wildlife.js';
 import { Fireflies } from './world/Fireflies.js';
 import { Footprints } from './world/Footprints.js';
+import { PondLife } from './world/PondLife.js';
 import { snowAt } from './world/Biome.js';
 import { terrainHeight, terrainSlope } from './world/Terrain.js';
 import { seasonIndex, leafSeason } from './world/Biome.js';
@@ -45,6 +46,7 @@ const wildlife = new Wildlife(engine.scene, LOW ? { flocks: 1, deer: 3 } : { flo
 const fireflies = new Fireflies(engine.scene, LOW ? 80 : 130);
 const footprints = new Footprints(engine.scene);
 const fx = new FX(engine.scene);
+const pondlife = new PondLife(engine.scene, fx);
 const camera = new FollowCamera(engine.camera, input);
 const squirrel = new Squirrel();
 engine.scene.add(squirrel.group);
@@ -306,7 +308,10 @@ function frame(now) {
 
   critters.update(dt, player.position);
   wildlife.update(dt, player.position, t);
+  pondlife.update(dt, t, player.position);
   fireflies.update(dt, t, player.position, sky.dayAmount);
+  // glowing flora lights up at night
+  world.scatter.glowMat.emissiveIntensity = THREE.MathUtils.clamp(1 - sky.dayAmount * 1.3, 0, 1) * 2.4;
   if (cmd === 'deer' && !deerFramed) {
     const d = wildlife.deer[0];
     d.pos.set(player.position.x, terrainHeight(player.position.x, player.position.z + 18), player.position.z + 18);

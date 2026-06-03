@@ -145,11 +145,29 @@ function shrub(rng, x = 0, z = 0) {
   return g;
 }
 
+// Small bioluminescent mushroom (glows at night via emissiveIntensity).
+function glowShroom(rng) {
+  const parts = [];
+  const stem = new THREE.CylinderGeometry(0.03, 0.045, 0.22, 6);
+  stem.translate(0, 0.11, 0);
+  parts.push(stem);
+  const cap = new THREE.SphereGeometry(0.13, 10, 7, 0, Math.PI * 2, 0, Math.PI * 0.55);
+  cap.scale(1, 0.8, 1); cap.translate(0, 0.22, 0);
+  parts.push(cap);
+  const g = BufferGeometryUtils.mergeGeometries(parts, false);
+  parts.forEach((p) => p.dispose());
+  return g;
+}
+
 export class Scatter {
   constructor() {
     this.grassGeo = bladeTuft();
     this.grassMat = makeGrassMaterial();
     this.detailMat = makeFoliageMaterial();
+    // shared glow material; main sets emissiveIntensity from the night factor
+    this.glowMat = new THREE.MeshStandardMaterial({
+      color: 0x2a4a52, emissive: new THREE.Color(0x4fe6d2), emissiveIntensity: 0, roughness: 0.6,
+    });
   }
 
   populate(cx, cz, group) {
@@ -237,6 +255,42 @@ export class Scatter {
       const mesh = new THREE.Mesh(merged, this.detailMat);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
+      group.add(mesh);
+    }
+
+    // ---- glowing mushrooms (light up at night) + occasional fairy ring ----
+    const glow = [];
+    const place = (wx, wz, sc) => {
+      const h = terrainHeight(wx, wz);
+      if (h < WORLD.waterLevel + 0.2 || terrainSlope(wx, wz) > 0.5) return;
+      const g = glowShroom();
+      const m = new THREE.Matrix4().makeScale(sc, sc, sc); m.setPosition(wx, h, wz);
+      g.applyMatrix4(m); glow.push(g);
+    };
+    const gn = 5;
+    for (let gz = 0; gz < gn; gz++) for (let gx = 0; gx < gn; gx++) {
+      const hx = cx * gn + gx, hz = cz * gn + gz;
+      if (hash2(hx, hz, 41) > 0.32) continue;
+      const wx = ox + (gx + hash2(hx, hz, 42)) * (size / gn);
+      const wz = oz + (gz + hash2(hx, hz, 43)) * (size / gn);
+      place(wx, wz, 0.7 + hash2(hx, hz, 44) * 0.7);
+    }
+    // fairy ring: rare, a circle of little mushrooms
+    if (hash2(cx, cz, 91) < 0.16) {
+      const rx = ox + size * (0.3 + hash2(cx, cz, 92) * 0.4);
+      const rz = oz + size * (0.3 + hash2(cx, cz, 93) * 0.4);
+      const rr = 2.2 + hash2(cx, cz, 94) * 1.4;
+      const n = 9 + (hash2(cx, cz, 95) * 4 | 0);
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        place(rx + Math.cos(a) * rr, rz + Math.sin(a) * rr, 0.8);
+      }
+    }
+    if (glow.length) {
+      const merged = BufferGeometryUtils.mergeGeometries(glow, false);
+      glow.forEach((d) => d.dispose());
+      const mesh = new THREE.Mesh(merged, this.glowMat);
+      mesh.castShadow = false; mesh.receiveShadow = true;
       group.add(mesh);
     }
   }
