@@ -5,7 +5,7 @@ import * as THREE from 'three';
 // flattened plume tail (broad overlapping tufts — not a chain of segments).
 const fur = new THREE.MeshStandardMaterial({ color: 0xc3b7a3, roughness: 0.95, metalness: 0 }); // soft grey-brown
 const furTip = new THREE.MeshStandardMaterial({ color: 0xa89a85, roughness: 0.95 });            // darker accents
-const belly = new THREE.MeshStandardMaterial({ color: 0xf5eddd, roughness: 0.9 });              // cream
+const belly = new THREE.MeshStandardMaterial({ color: 0xe9dcc4, roughness: 0.92 });             // soft cream (kept below bloom)
 const eyeMat = new THREE.MeshStandardMaterial({ color: 0x0c0a08, roughness: 0.1, metalness: 0.15 });
 const shine = new THREE.MeshBasicMaterial({ color: 0xffffff });
 const noseMat = new THREE.MeshStandardMaterial({ color: 0xe79aab, roughness: 0.5 });
