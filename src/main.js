@@ -167,7 +167,7 @@ function updateGodRays() {
   engine.camera.getWorldDirection(_camFwd);
   const facing = _camFwd.dot(sky.sunDir);
   const onScreen = _sunWorld.z < 1 && Math.abs(_sunWorld.x) < 1.6 && Math.abs(_sunWorld.y) < 1.6;
-  const inten = onScreen ? THREE.MathUtils.smoothstep(facing, 0.1, 0.7) * 0.7 : 0;
+  const inten = onScreen ? THREE.MathUtils.smoothstep(facing, 0.2, 0.75) * 0.85 : 0;
   const u = engine.godrays.uniforms;
   u.uSun.value.set(_sunWorld.x * 0.5 + 0.5, _sunWorld.y * 0.5 + 0.5);
   u.uIntensity.value += (inten - u.uIntensity.value) * 0.08;

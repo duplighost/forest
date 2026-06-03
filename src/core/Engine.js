@@ -30,19 +30,22 @@ const GodRayShader = {
       if (uIntensity <= 0.001) { gl_FragColor = vec4(base, 1.0); return; }
       vec2 dir = (uSun - vUv);
       const int N = 28;
-      vec2 stp = dir / float(N) * 0.9;
+      vec2 stp = dir / float(N) * 0.85;
       vec2 uv = vUv;
       float decay = 1.0;
       vec3 accum = vec3(0.0);
       for (int i = 0; i < N; i++) {
         uv += stp;
         vec3 s = texture2D(tDiffuse, clamp(uv, 0.0, 1.0)).rgb;
-        float l = max(0.0, max(s.r, max(s.g, s.b)) - 0.62);
+        // only near-white highlights (sky core through the canopy) make shafts
+        float l = max(0.0, max(s.r, max(s.g, s.b)) - 0.82);
         accum += s * l * decay;
-        decay *= 0.93;
+        decay *= 0.9;
       }
       accum /= float(N);
-      vec3 col = base + accum * uColor * uIntensity * 5.0;
+      // soft-clamp so shafts add glow without ever washing the frame out
+      accum = accum / (accum + 0.6);
+      vec3 col = base + accum * uColor * uIntensity;
       gl_FragColor = vec4(col, 1.0);
     }
   `,
