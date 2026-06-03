@@ -134,6 +134,7 @@ export class Squirrel {
     // Animation state.
     this.glide = 0; this.climb = 0; this.swim = 0; this.runW = 0;
     this.phase = 0; this.idle = 0; this._blink = 0;
+    this._sq = 0; this._sqV = 0; // squash/stretch spring
     this._setLegBase();
   }
 
@@ -184,12 +185,23 @@ export class Squirrel {
     legPose(this.legs.bl, Math.PI, -1, -1);
     legPose(this.legs.br, 0, 1, -1);
 
+    // --- Squash & stretch spring (juice on jump / land) ---
+    if (info.stretch) this._sqV += info.stretch * 13;
+    if (info.land) this._sqV -= info.land * 15;
+    this._sqV += (-this._sq * 90 - this._sqV * 12) * dt; // damped spring
+    this._sq += this._sqV * dt;
+    this._sq = THREE.MathUtils.clamp(this._sq, -0.8, 1.0);
+
     // --- Body bob, bank, flatten-for-glide ---
     const bob = Math.sin(ph * 2) * 0.05 * this.runW;
     this.bodyG.position.y = bob + this.swim * Math.sin(t * 2) * 0.04;
     this.bodyG.rotation.z = THREE.MathUtils.lerp(this.bodyG.rotation.z, -(info.turn || 0) * 0.5, 0.1);
     const flat = this.glide;
-    this.bodyG.scale.set(1 + flat * 0.28, 1 - flat * 0.22, 1 + flat * 0.18);
+    this.bodyG.scale.set(
+      (1 + flat * 0.28) * (1 - this._sq * 0.16),
+      (1 - flat * 0.22) * (1 + this._sq * 0.26),
+      (1 + flat * 0.18) * (1 - this._sq * 0.16)
+    );
 
     // --- Head: peek up while gliding, bob while running ---
     this.headG.rotation.x = THREE.MathUtils.lerp(

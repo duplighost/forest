@@ -37,6 +37,8 @@ export class Controller {
     this._coyote = 0;
     this._jumpBuf = 0;
     this._grabCooldown = 0;
+    this._land = 0;     // one-shot landing impact (drives squash)
+    this._stretch = 0;  // one-shot jump/leap (drives stretch)
     this.climbTree = null;
     this.climbSeg = null;
     this.surfaceNormal = new THREE.Vector3(0, 1, 0);
@@ -132,6 +134,7 @@ export class Controller {
       this.position.y += 0.02;
       this._jumpBuf = 0; this._coyote = 0;
       this.grounded = false;
+      this._stretch = 1;
       this.state = 'air';
       return;
     }
@@ -190,6 +193,7 @@ export class Controller {
     // ground landing
     if (this.position.y <= gh) {
       this.position.y = gh;
+      this._land = THREE.MathUtils.clamp(-vel.y / 14, 0.25, 1);
       vel.y = 0;
       this.roll = 0; this.pitch = 0;
       this.state = 'ground';
@@ -376,12 +380,16 @@ export class Controller {
   }
 
   _animInfo() {
-    return {
+    const info = {
       state: this.state,
       speed: this.velocity.length(),
       turn: this.turnRate,
       vy: this.velocity.y,
+      land: this._land,
+      stretch: this._stretch,
     };
+    this._land = 0; this._stretch = 0; // one-shot impulses
+    return info;
   }
 
   // Produce the world transform for the squirrel model.

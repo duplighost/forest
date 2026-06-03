@@ -82,6 +82,9 @@ export class FollowCamera {
     const fa = 1 - Math.exp(-CAMERA.followLerp * dt);
     this.camera.position.lerp(this._desired, fa);
 
+    // Pull in if a tree trunk sits between the squirrel and the camera.
+    this._avoidTrunks(player);
+
     // Keep the camera above the ground (and a touch above water).
     const groundY = terrainHeight(this.camera.position.x, this.camera.position.z) + CAMERA.collisionPad;
     if (this.camera.position.y < groundY) this.camera.position.y = groundY;
@@ -89,5 +92,37 @@ export class FollowCamera {
     const la = 1 - Math.exp(-CAMERA.lookLerp * dt);
     this._curLook.lerp(this.target, la);
     this.camera.lookAt(this._curLook);
+  }
+
+  // 2D (XZ) ray from the player toward the camera; if a trunk blocks it, pull
+  // the camera in to just before the trunk so we never see through bark.
+  _avoidTrunks(player) {
+    const trees = player.world?.activeTrees;
+    if (!trees || !trees.length) return;
+    const ox = this.target.x, oz = this.target.z;
+    let dx = this.camera.position.x - ox, dz = this.camera.position.z - oz;
+    const dist = Math.hypot(dx, dz);
+    if (dist < 0.3) return;
+    dx /= dist; dz /= dist;
+    let minT = dist;
+    for (const tr of trees) {
+      if (tr.topY < this.target.y - 1.5) continue; // too short to block the view
+      const cx = tr.x - ox, cz = tr.z - oz;
+      const proj = cx * dx + cz * dz;
+      if (proj <= 0.4 || proj >= dist) continue;     // trunk not between us
+      const perp2 = cx * cx + cz * cz - proj * proj;
+      const r = tr.trunkRadius + CAMERA.collisionPad + 0.3;
+      if (perp2 < r * r) {
+        const enter = proj - Math.sqrt(r * r - perp2);
+        if (enter < minT) minT = enter;
+      }
+    }
+    if (minT < dist) {
+      const t = Math.max(1.4, minT);
+      this.camera.position.x = ox + dx * t;
+      this.camera.position.z = oz + dz * t;
+      // ease the height toward the target's so we don't dip into the ground
+      this.camera.position.y = THREE.MathUtils.lerp(this.target.y + 0.6, this.camera.position.y, t / dist);
+    }
   }
 }
