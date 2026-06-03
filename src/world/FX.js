@@ -89,6 +89,16 @@ export class FX {
       wx + (Math.random() - 0.5) * 2.5, -0.4 + Math.random() * 0.6, wz + (Math.random() - 0.5) * 2.5,
       color, 0.45 + Math.random() * 0.45, 3 + Math.random() * 2.5, 1.1);
   }
+  // colourful petals kicked up when running through flowers
+  petals(p) {
+    const cols = [0xf6bcd6, 0xffe26b, 0xfbf3ff, 0x9bb8e6, 0xef8fb0, 0xc2e588, 0xffc24d];
+    for (let i = 0; i < 7; i++) {
+      const a = Math.random() * Math.PI * 2, s = 1 + Math.random() * 2.6;
+      this._emit(p.x + (Math.random() - 0.5) * 0.7, p.y + 0.15, p.z + (Math.random() - 0.5) * 0.7,
+        Math.cos(a) * s, 1.3 + Math.random() * 2.0, Math.sin(a) * s,
+        cols[(Math.random() * cols.length) | 0], 0.4 + Math.random() * 0.45, 0.9 + Math.random() * 0.7, 2.4);
+    }
+  }
   footDust(p) {
     for (let i = 0; i < 2; i++) {
       const a = Math.random() * Math.PI * 2, s = 0.3 + Math.random() * 0.9;

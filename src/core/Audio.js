@@ -114,6 +114,13 @@ export class Ambience {
     out.gain.exponentialRampToValueAtTime(0.0008, t + 1.8 + Math.random());
   }
 
+  // A soft, bright tinkle for running through flowers.
+  flowerChime() {
+    if (!this.started || !this.ctx) return;
+    const scale = [523.3, 587.3, 659.3, 784.0, 880.0, 1046.5, 1174.7];
+    this._bell(0.035 + Math.random() * 0.025, scale[(Math.random() * scale.length) | 0]);
+  }
+
   // Called each frame while airborne; chimes get more frequent and louder the
   // faster you glide, so a big swooping glide rings out.
   glide(dt, airborne, speed) {

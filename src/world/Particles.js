@@ -51,8 +51,9 @@ export class Particles {
           vCol = color;
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
           float dist = -mv.z;
-          gl_PointSize = clamp(70.0 / max(1.0, dist), 1.5, 9.0);
-          vA = smoothstep(2.5, 8.0, dist) * smoothstep(95.0, 45.0, dist);
+          gl_PointSize = clamp(46.0 / max(1.0, dist), 1.0, 6.0);
+          // only motes in a near band are visible, so they never accumulate into haze
+          vA = smoothstep(3.0, 9.0, dist) * smoothstep(46.0, 24.0, dist);
           gl_Position = projectionMatrix * mv;
         }`,
       fragmentShader: /* glsl */ `
@@ -60,7 +61,7 @@ export class Particles {
         void main(){
           if (vA <= 0.001) discard;
           float a = texture2D(uTex, gl_PointCoord).a;
-          gl_FragColor = vec4(vCol, a * vA * 0.5);
+          gl_FragColor = vec4(vCol, a * vA * 0.26);
         }`,
     });
     mat.vertexColors = true;

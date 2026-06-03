@@ -15,7 +15,7 @@ import { Fireflies } from './world/Fireflies.js';
 import { Footprints } from './world/Footprints.js';
 import { PondLife } from './world/PondLife.js';
 import { Streaks } from './world/Streaks.js';
-import { snowAt } from './world/Biome.js';
+import { snowAt, flowerAt } from './world/Biome.js';
 import { terrainHeight, terrainSlope } from './world/Terrain.js';
 import { seasonIndex, leafSeason } from './world/Biome.js';
 import { FollowCamera } from './player/FollowCamera.js';
@@ -41,7 +41,7 @@ const backdrop = new Backdrop(engine.scene);
 const weather = new Weather(engine.scene, { drops: LOW ? 1400 : 2600 });
 const world = new World(engine.scene);
 const water = new Water(engine.scene, sky.sunDir);
-const particles = new Particles(engine.scene, LOW ? 170 : 320);
+const particles = new Particles(engine.scene, LOW ? 90 : 150);
 const critters = new Critters(engine.scene, LOW ? 4 : 7);
 const wildlife = new Wildlife(engine.scene, LOW ? { flocks: 1, deer: 3 } : { flocks: 2, deer: 5 });
 const fireflies = new Fireflies(engine.scene, LOW ? 80 : 130);
@@ -203,9 +203,10 @@ function applyCmd() {
     camera.yaw = 2.35; camera.pitch = 0.16; camera.distance = 4.6;
     player.facing = 0.6;
   } else if (cmd === 'model') {
-    // clean model inspection: no fog, no post wash
+    // clean model inspection: no fog, no post wash, no atmosphere particles
     engine.bloom.enabled = false; engine.godrays.enabled = false; engine.grade.enabled = false;
     engine.scene.fog.near = 9000; engine.scene.fog.far = 9001;
+    particles.points.visible = false; fireflies.points.visible = false;
     sky.setTime(0.42); sky.dayLength = 1e9;
     camera.yaw = Math.PI; camera.pitch = 0.05; camera.distance = 2.7;
     player.facing = 0;
@@ -299,6 +300,7 @@ function updateGodRays() {
 let tPrev = null;
 let _trailT = 0;
 let _leafT = 0;
+let _flowerT = 0;
 let deerFramed = false;
 function frame(now) {
   if (tPrev === null) tPrev = now;
@@ -331,6 +333,14 @@ function frame(now) {
   _trailT -= dt;
   if (player.state === 'ground' && player.speed > 13 && _trailT <= 0) {
     fx.footDust(player.position); _trailT = 0.06;
+  }
+  // running through flowers kicks up petals and a soft tinkle
+  _flowerT -= dt;
+  if (player.state === 'ground' && player.speed > 4 && _flowerT <= 0 &&
+      flowerAt(player.position.x, player.position.z) > 0.5) {
+    _flowerT = 0.15;
+    fx.petals(player.position);
+    if (Math.random() < 0.55) ambience.flowerChime();
   }
   fx.update(dt);
   _vdir.copy(player.velocity); if (_vdir.lengthSq() > 0.01) _vdir.normalize();

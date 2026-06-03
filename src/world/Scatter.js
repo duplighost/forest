@@ -249,6 +249,27 @@ export class Scatter {
         det.push(g);
       }
     }
+
+    // ---- dense colourful flower fields (thicker where the season is flowery) ----
+    const fcell = 3.4;
+    const fn = Math.floor(size / fcell);
+    for (let gz = 0; gz < fn; gz++) {
+      for (let gx = 0; gx < fn; gx++) {
+        const hx = cx * fn + gx + 7, hz = cz * fn + gz + 13;
+        const wx = ox + gx * fcell + (hash2(hx, hz, 61) - 0.5) * fcell;
+        const wz = oz + gz * fcell + (hash2(hx, hz, 62) - 0.5) * fcell;
+        const fl = flowerAt(wx, wz);
+        if (fl < 0.15 || hash2(hx, hz, 63) > fl * 0.85) continue;
+        const h = terrainHeight(wx, wz);
+        if (h < WORLD.waterLevel + 0.3 || terrainSlope(wx, wz) > 0.55) continue;
+        const g = flower(mulberryFrom(hx, hz, 6));
+        const s = 0.8 + hash2(hx, hz, 64) * 0.7;
+        const m = new THREE.Matrix4().makeRotationY(hash2(hx, hz, 65) * Math.PI * 2);
+        m.scale(new THREE.Vector3(s, s, s)); m.setPosition(wx, h, wz);
+        g.applyMatrix4(m); det.push(g);
+      }
+    }
+
     if (det.length) {
       const merged = BufferGeometryUtils.mergeGeometries(det, false);
       det.forEach((d) => d.dispose());
