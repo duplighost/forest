@@ -99,6 +99,14 @@ export class FX {
         cols[(Math.random() * cols.length) | 0], 0.4 + Math.random() * 0.45, 0.9 + Math.random() * 0.7, 2.4);
     }
   }
+  // a quick shimmer of sparks (the wisp darting away)
+  sparkle(p, color = 0xffffff) {
+    for (let i = 0; i < 9; i++) {
+      const a = Math.random() * Math.PI * 2, s = 1 + Math.random() * 3.2;
+      this._emit(p.x, p.y, p.z, Math.cos(a) * s, (Math.random() - 0.25) * 3, Math.sin(a) * s,
+        color, 0.3 + Math.random() * 0.4, 0.5 + Math.random() * 0.5, 1.0);
+    }
+  }
   footDust(p) {
     for (let i = 0; i < 2; i++) {
       const a = Math.random() * Math.PI * 2, s = 0.3 + Math.random() * 0.9;

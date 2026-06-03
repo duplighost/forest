@@ -62,3 +62,8 @@ export function seasonIndex(x, z) {
   let s = fbm2(x * BF + 40.0, z * BF - 17.0, 3) * 0.5 + 0.5;
   return Math.round(THREE.MathUtils.clamp(s, 0, 1) * 3);
 }
+// Continuous season position 0..3 (smooth) — for crossfading ambient music.
+export function seasonAt(x, z) {
+  let s = fbm2(x * BF + 40.0, z * BF - 17.0, 3) * 0.5 + 0.5;
+  return THREE.MathUtils.clamp(s, 0, 1) * 3;
+}

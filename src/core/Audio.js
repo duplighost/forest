@@ -1,11 +1,24 @@
 // Procedural ambient soundscape — no assets, no words. A soft wind bed, an
 // occasional bird, a quiet magical pad, water when you swim, and a wind-rush
 // that swells with glide speed. Starts only after the first user gesture.
+
+// Seasonal music palettes. A sustained chord (the pad slowly retunes to it)
+// plus a scale of soft bells that play generatively. Spring is bright, summer
+// warm & full, autumn wistful, winter sparse & crystalline (high + slow).
+const SEASON_AUDIO = [
+  { chord: [220.00, 277.18, 329.63, 415.30], scale: [440.0, 554.4, 659.3, 830.6, 880.0, 1108.7], rate: [1.8, 4.6], vol: 0.052 },
+  { chord: [174.61, 261.63, 329.63, 392.00], scale: [392.0, 440.0, 523.3, 587.3, 659.3, 784.0], rate: [2.2, 5.2], vol: 0.056 },
+  { chord: [220.00, 261.63, 329.63, 392.00], scale: [261.6, 329.6, 392.0, 440.0, 523.3, 659.3], rate: [2.8, 6.4], vol: 0.050 },
+  { chord: [164.81, 246.94, 329.63, 493.88], scale: [784.0, 987.8, 1174.7, 1318.5, 1568.0], rate: [4.8, 10.5], vol: 0.044 },
+];
+
 export class Ambience {
   constructor() {
     this.ctx = null;
     this.started = false;
     this._birdT = 0;
+    this._melodyT = 3.5;
+    this._seasonT = 0;
   }
 
   start() {
@@ -90,6 +103,39 @@ export class Ambience {
       o.start();
       return o;
     });
+
+    // wisp shimmer — airy high sines whose level tracks how close the spirit is
+    this.wispGain = ctx.createGain();
+    this.wispGain.gain.value = 0;
+    this.wispGain.connect(this.master);
+    [1318.5, 1567.98, 1975.53].forEach((f, i) => {
+      const o = ctx.createOscillator();
+      o.type = 'sine';
+      o.frequency.value = f;
+      const g = ctx.createGain();
+      g.gain.value = 0.5 / (i + 1);
+      const trem = ctx.createOscillator();         // gentle shimmer
+      trem.frequency.value = 4.5 + i * 0.8;
+      const tg = ctx.createGain();
+      tg.gain.value = 0.4;
+      trem.connect(tg).connect(g.gain); trem.start();
+      o.connect(g).connect(this.wispGain);
+      o.start();
+    });
+  }
+
+  // Called each frame with the spirit's proximity (0..1); swells the shimmer.
+  wisp(dt, near) {
+    if (!this.started || !this.ctx) return;
+    this.wispGain.gain.setTargetAtTime(near * near * 0.05, this.ctx.currentTime, 0.2);
+  }
+
+  // A quick ascending two-note sparkle when the wisp darts away.
+  wispDart() {
+    if (!this.started || !this.ctx) return;
+    const hi = [880.0, 1046.5, 1318.5, 1567.98];
+    this._bell(0.05, hi[(Math.random() * 2) | 0]);
+    setTimeout(() => this._bell(0.045, hi[2 + ((Math.random() * 2) | 0)]), 95);
   }
 
   // A soft bell note from a warm pentatonic scale (used for glide chimes).
@@ -163,7 +209,7 @@ export class Ambience {
     g.gain.setValueAtTime(0.5, t);
   }
 
-  update(dt, state, speed, wetness = 0) {
+  update(dt, state, speed, wetness = 0, season = 1) {
     if (!this.started || !this.ctx) return;
     const ctx = this.ctx;
     this.rainGain.gain.setTargetAtTime(wetness * 0.5, ctx.currentTime, 0.4);
@@ -174,6 +220,30 @@ export class Ambience {
     this.windFilter.frequency.setTargetAtTime(480 + rush * 1400, ctx.currentTime, 0.3);
     // water while swimming
     this.waterGain.gain.setTargetAtTime(state === 'swim' ? 0.5 : 0.0, ctx.currentTime, 0.25);
+
+    // --- seasonal music: retune the pad chord + sprinkle gentle bells ---
+    const sv = Math.max(0, Math.min(3, season));
+    const si = Math.min(Math.floor(sv), 2), sf = sv - si;
+    const A = SEASON_AUDIO[si], B = SEASON_AUDIO[si + 1];
+    this._seasonT -= dt;
+    if (this._seasonT <= 0) {                 // throttle the pad retune
+      this._seasonT = 0.5;
+      for (let i = 0; i < this.padOscs.length; i++) {
+        const f = A.chord[i] * (1 - sf) + B.chord[i] * sf;
+        this.padOscs[i].frequency.setTargetAtTime(f, ctx.currentTime, 1.5);
+      }
+    }
+    this._melodyT -= dt;
+    if (this._melodyT <= 0) {
+      const pick = sf < 0.5 ? A : B;          // bells from the dominant season
+      if (rush < 0.4) {                       // hush the melody mid-glide
+        this._melodyT = pick.rate[0] + Math.random() * (pick.rate[1] - pick.rate[0]);
+        if (Math.random() < 0.85) {
+          const f = pick.scale[(Math.random() * pick.scale.length) | 0];
+          this._bell(pick.vol * (0.7 + Math.random() * 0.6), f);
+        }
+      } else { this._melodyT = 1.2; }
+    }
 
     // schedule birds when calm (not mid-glide)
     this._birdT -= dt;

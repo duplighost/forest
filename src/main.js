@@ -15,9 +15,10 @@ import { Fireflies } from './world/Fireflies.js';
 import { Footprints } from './world/Footprints.js';
 import { PondLife } from './world/PondLife.js';
 import { Streaks } from './world/Streaks.js';
+import { Wisp } from './world/Wisp.js';
 import { snowAt, flowerAt } from './world/Biome.js';
 import { terrainHeight, terrainSlope } from './world/Terrain.js';
-import { seasonIndex, leafSeason } from './world/Biome.js';
+import { seasonIndex, leafSeason, seasonAt } from './world/Biome.js';
 import { hash2 } from './world/Noise.js';
 import { FollowCamera } from './player/FollowCamera.js';
 import { Squirrel } from './player/Squirrel.js';
@@ -50,6 +51,7 @@ const footprints = new Footprints(engine.scene);
 const fx = new FX(engine.scene);
 const pondlife = new PondLife(engine.scene, fx);
 const streaks = new Streaks(engine.scene, LOW ? 50 : 90);
+const wisp = new Wisp(engine.scene);
 const _vdir = new THREE.Vector3();
 const camera = new FollowCamera(engine.camera, input);
 const squirrel = new Squirrel();
@@ -252,6 +254,34 @@ function applyCmd() {
       player.state = 'climb'; player.climbTree = tree;
       camera.distance = 4.4; camera.yaw = Math.PI; camera.pitch = 0.1;
     }
+  } else if (cmd === 'wisp') {
+    // park the spirit just ahead, warm low light so the glow + trail read
+    sky.setTime(0.66); sky.dayLength = 1e9;
+    const wz = spawn.z + 7;
+    wisp.park(spawn.x, terrainHeight(spawn.x, wz) + 2.1, wz);
+    camera.yaw = 0; camera.pitch = 0.05; camera.distance = 5.4;
+    player.facing = 0;
+  } else if (cmd === 'pond') {
+    // stand on the bank of the nearest pond, looking across the water
+    let found = null, fc = null;
+    for (let r = 8; r < 360 && !found; r += 8)
+      for (let a = 0; a < 6.28; a += 0.35) {
+        const x = spawn.x + Math.cos(a) * r, z = spawn.z + Math.sin(a) * r;
+        if (terrainHeight(x, z) < WORLD.waterLevel - 1.4) { found = new THREE.Vector3(x, WORLD.waterLevel, z); break; }
+      }
+    if (found) {
+      // back off onto dry land toward the origin and look at the water
+      const dir = new THREE.Vector3(spawn.x - found.x, 0, spawn.z - found.z).normalize();
+      for (let s = 4; s < 26; s += 1.5) {
+        const px = found.x + dir.x * s, pz = found.z + dir.z * s;
+        if (terrainHeight(px, pz) > WORLD.waterLevel + 0.6) { fc = new THREE.Vector3(px, terrainHeight(px, pz), pz); break; }
+      }
+      const p = fc || found;
+      player.position.copy(p); world.update(p); world.buildAllPending();
+      pondlife.update(0.016, 0, p); pondlife.update(0.016, 0, p);
+      camera.yaw = Math.atan2(found.x - p.x, found.z - p.z);
+      camera.pitch = 0.34; camera.distance = 6.5; sky.setTime(0.4); sky.dayLength = 1e9;
+    }
   }
 }
 applyCmd();
@@ -387,6 +417,10 @@ function frame(now) {
   wildlife.update(dt, player.position, t);
   pondlife.update(dt, t, player.position);
   fireflies.update(dt, t, player.position, sky.dayAmount);
+  // glowing wisp to chase — leads you on, darts away when you catch up
+  const wInfo = wisp.update(dt, t, player.position, sky.dayAmount);
+  if (wInfo.darted) fx.sparkle(wisp.pos, wisp.col.getHex());
+  const season = seasonAt(player.position.x, player.position.z);
   // glowing flora lights up at night
   world.scatter.glowMat.emissiveIntensity = THREE.MathUtils.clamp(1 - sky.dayAmount * 1.3, 0, 1) * 2.4;
   if (cmd === 'deer' && !deerFramed) {
@@ -405,8 +439,10 @@ function frame(now) {
   windUniforms.uSunView.value.copy(sky.sunDir).transformDirection(engine.camera.matrixWorldInverse);
   windUniforms.uGlowAmt.value = 1.35 * sky.dayAmount * (1 - weather.cloudiness * 0.7);
   updateGodRays();
-  ambience.update(dt, player.state, player.speed, weather.wetness);
+  ambience.update(dt, player.state, player.speed, weather.wetness, season);
   ambience.glide(dt, player.state === 'air', player.speed);
+  ambience.wisp(dt, wInfo.near);
+  if (wInfo.darted) ambience.wispDart();
 
   // Speed rush: widen the FOV a touch as you pick up glide speed.
   const targetFov = CAMERA.fov + THREE.MathUtils.clamp((player.speed - 10) / 18, 0, 1) * 15;
