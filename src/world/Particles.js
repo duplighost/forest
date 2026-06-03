@@ -21,15 +21,23 @@ export class Particles {
     this.count = count;
     this.range = new THREE.Vector3(70, 34, 70);
     const pos = new Float32Array(count * 3);
+    const col = new Float32Array(count * 3);
     this.seed = new Float32Array(count);
+    // A magical palette: mostly warm gold motes, with soft pink petals and a
+    // few pale-green spores drifting through the light.
+    const palette = [0xfff0c8, 0xffe6a8, 0xfff0c8, 0xf6c9d8, 0xf6c9d8, 0xd6ecb8];
+    const c = new THREE.Color();
     for (let i = 0; i < count; i++) {
       pos[i * 3] = (Math.random() - 0.5) * this.range.x;
       pos[i * 3 + 1] = Math.random() * this.range.y;
       pos[i * 3 + 2] = (Math.random() - 0.5) * this.range.z;
       this.seed[i] = Math.random() * 1000;
+      c.set(palette[(Math.random() * palette.length) | 0]);
+      col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
     this.geo = geo;
 
     const mat = new THREE.PointsMaterial({
@@ -38,7 +46,8 @@ export class Particles {
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
-      opacity: 0.7,
+      opacity: 0.62,
+      vertexColors: true,
       sizeAttenuation: true,
     });
     this.points = new THREE.Points(geo, mat);

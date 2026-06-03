@@ -83,6 +83,14 @@ export class FX {
         0xcdbd97, 0.7 + Math.random() * 0.8, 0.5 + Math.random() * 0.3, 1.5);
     }
   }
+  footDust(p) {
+    for (let i = 0; i < 2; i++) {
+      const a = Math.random() * Math.PI * 2, s = 0.3 + Math.random() * 0.9;
+      this._emit(p.x + (Math.random() - 0.5) * 0.3, p.y + 0.06, p.z + (Math.random() - 0.5) * 0.3,
+        Math.cos(a) * s, 0.3 + Math.random() * 0.7, Math.sin(a) * s,
+        0xd9cca8, 0.45 + Math.random() * 0.45, 0.4 + Math.random() * 0.25, 1.8);
+    }
+  }
   leaves(p) {
     for (let i = 0; i < 10; i++) {
       const a = Math.random() * Math.PI * 2, s = 1 + Math.random() * 2;

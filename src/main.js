@@ -181,6 +181,7 @@ function updateGodRays() {
 }
 
 let tPrev = null;
+let _trailT = 0;
 function frame(now) {
   if (tPrev === null) tPrev = now;
   let dt = (now - tPrev) / 1000;
@@ -204,6 +205,11 @@ function frame(now) {
   player.applyTransform(squirrel.group, dt);
   squirrel.update(dt, anim);
   camera.follow(dt, player);
+  // kick up dust when sprinting along the ground
+  _trailT -= dt;
+  if (player.state === 'ground' && player.speed > 13 && _trailT <= 0) {
+    fx.footDust(player.position); _trailT = 0.06;
+  }
   fx.update(dt);
 
   world.update(player.position);
