@@ -40,16 +40,30 @@ export class Particles {
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
     this.geo = geo;
 
-    const mat = new THREE.PointsMaterial({
-      size: 0.5,
-      map: softSprite(),
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-      opacity: 0.62,
-      vertexColors: true,
-      sizeAttenuation: true,
+    // Custom material: size is CAPPED and motes fade when very close to the
+    // camera, so a mote drifting past the lens can never blow out the frame.
+    const mat = new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
+      uniforms: { uTex: { value: softSprite() } },
+      vertexShader: /* glsl */ `
+        varying vec3 vCol; varying float vA;
+        void main(){
+          vCol = color;
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          float dist = -mv.z;
+          gl_PointSize = clamp(70.0 / max(1.0, dist), 1.5, 9.0);
+          vA = smoothstep(2.5, 8.0, dist) * smoothstep(95.0, 45.0, dist);
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: /* glsl */ `
+        uniform sampler2D uTex; varying vec3 vCol; varying float vA;
+        void main(){
+          if (vA <= 0.001) discard;
+          float a = texture2D(uTex, gl_PointCoord).a;
+          gl_FragColor = vec4(vCol, a * vA * 0.5);
+        }`,
     });
+    mat.vertexColors = true;
     this.points = new THREE.Points(geo, mat);
     this.points.frustumCulled = false;
     this.points.renderOrder = 2;

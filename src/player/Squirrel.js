@@ -52,6 +52,7 @@ export class Squirrel {
     cheeks.position.set(0, -0.06, 0.14);
     this.headG.add(cheeks);
 
+    this.eyes = []; this.shines = []; this.ears = [];
     for (const sx of [-1, 1]) {
       // big round cheek fluff (chipmunk-cute)
       const tuft = ellipsoid(fur, 0.15, 0.14, 0.14, 12);
@@ -61,25 +62,28 @@ export class Squirrel {
       // Eyes — huge, glossy black — with two catchlights for life.
       const eye = ellipsoid(eyeMat, 0.15, 0.165, 0.145, 20);
       eye.position.set(sx * 0.165, 0.05, 0.21);
-      this.headG.add(eye);
+      this.headG.add(eye); this.eyes.push(eye);
       const hi = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 10), shine);
       hi.position.set(sx * 0.13, 0.11, 0.33);
-      this.headG.add(hi);
+      this.headG.add(hi); this.shines.push(hi);
       const hi2 = new THREE.Mesh(new THREE.SphereGeometry(0.025, 8, 8), shine);
       hi2.position.set(sx * 0.21, -0.01, 0.31);
-      this.headG.add(hi2);
+      this.headG.add(hi2); this.shines.push(hi2);
 
       // ears — white & fluffy with a pink inner and a little tuft
-      const ear = ellipsoid(fur, 0.105, 0.14, 0.06, 12);
-      ear.position.set(sx * 0.21, 0.30, 0.0);
-      ear.rotation.z = sx * -0.18;
-      this.headG.add(ear);
+      const ear = new THREE.Group();
+      ear.position.set(sx * 0.21, 0.18, 0.0); ear.userData.sx = sx;
+      this.headG.add(ear); this.ears.push(ear);
+      const earM = ellipsoid(fur, 0.105, 0.14, 0.06, 12);
+      earM.position.set(0, 0.12, 0.0);
+      earM.rotation.z = sx * -0.18;
+      ear.add(earM);
       const earIn = ellipsoid(noseMat, 0.055, 0.085, 0.03, 10);
-      earIn.position.set(sx * 0.21, 0.30, 0.035);
-      this.headG.add(earIn);
+      earIn.position.set(0, 0.12, 0.035);
+      ear.add(earIn);
       const earTuft = ellipsoid(fur, 0.05, 0.07, 0.05, 8);
-      earTuft.position.set(sx * 0.215, 0.42, 0.0);
-      this.headG.add(earTuft);
+      earTuft.position.set(sx * 0.005, 0.24, 0.0);
+      ear.add(earTuft);
     }
     // little pink nose
     const nose = ellipsoid(noseMat, 0.055, 0.05, 0.055, 10);
@@ -234,9 +238,25 @@ export class Squirrel {
       seg.rotation.y = sway * (0.4 + f) * (this.runW + this.swim + 0.3) + Math.sin(t * 1.7 - i) * 0.03;
     }
 
-    // --- Blink occasionally for life ---
+    // --- Eyes: blink, with the catchlights winking out ---
     this._blink -= dt;
-    if (this._blink < 0) this._blink = 1.6 + Math.random() * 3.0;
+    if (this._blink < 0) { this._blink = 1.4 + Math.random() * 3.4; this._blinkT = 0.16; }
+    this._blinkT = (this._blinkT || 0) - dt;
+    const closed = this._blinkT > 0 ? Math.sin((1 - this._blinkT / 0.16) * Math.PI) : 0;
+    for (const e of this.eyes) e.scale.y = 1 - closed * 0.92;
+    for (const s of this.shines) s.visible = closed < 0.4;
+
+    // --- Idle head glances when still ---
+    const still = THREE.MathUtils.clamp(1 - this.runW - this.glide - this.swim, 0, 1);
+    this._lookT = (this._lookT || 0) - dt;
+    if (this._lookT < 0) { this._lookT = 1.4 + Math.random() * 2.6; this._lookYaw = (Math.random() - 0.5) * 0.7; }
+    this.headG.rotation.y = THREE.MathUtils.lerp(this.headG.rotation.y, (this._lookYaw || 0) * still, 1 - Math.exp(-3 * dt));
+
+    // --- Ear twitch ---
+    this._earT = (this._earT || 0) - dt;
+    if (this._earT < 0) { this._earT = 0.8 + Math.random() * 3.2; this._earKick = 0.5; }
+    this._earKick = (this._earKick || 0) * Math.exp(-7 * dt);
+    for (const ear of this.ears) ear.rotation.z = Math.sin(t * 32) * this._earKick * 0.28 * ear.userData.sx + Math.sin(t * 1.3 + ear.userData.sx) * 0.03;
 
     // --- Idle breathing when still ---
     const stillness = 1 - this.runW - this.glide - this.swim;

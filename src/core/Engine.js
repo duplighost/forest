@@ -133,7 +133,7 @@ export class Engine {
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
 
-    this.bloom = new UnrealBloomPass(size, 0.24, 0.55, 0.92);
+    this.bloom = new UnrealBloomPass(size, 0.26, 0.55, 0.9);
     this.composer.addPass(this.bloom);
 
     this.composer.addPass(new OutputPass());

@@ -11,9 +11,9 @@ export class Weather {
     this.wetness = 0;
     this._cloudTarget = 0.2;
     this._wetTarget = 0;
-    this._timer = 6;
+    this._timer = 8;
     this.snowing = 0;            // 0 rain … 1 snow
-    this.changeEvery = opts.changeEvery ?? [22, 48];
+    this.changeEvery = opts.changeEvery ?? [38, 85];
 
     this._buildClouds();
     this._buildPrecip(opts.drops ?? 2400);
@@ -96,8 +96,8 @@ export class Weather {
   // Pick a new weather state occasionally.
   _retarget() {
     const r = Math.random();
-    if (r < 0.4) { this._cloudTarget = 0.1 + Math.random() * 0.2; this._wetTarget = 0; }     // clear-ish
-    else if (r < 0.72) { this._cloudTarget = 0.45 + Math.random() * 0.3; this._wetTarget = 0; } // cloudy
+    if (r < 0.46) { this._cloudTarget = 0.08 + Math.random() * 0.2; this._wetTarget = 0; }     // clear-ish
+    else if (r < 0.8) { this._cloudTarget = 0.45 + Math.random() * 0.3; this._wetTarget = 0; }  // cloudy
     else { this._cloudTarget = 0.7 + Math.random() * 0.3; this._wetTarget = 0.6 + Math.random() * 0.4; } // rain
     this._timer = this.changeEvery[0] + Math.random() * (this.changeEvery[1] - this.changeEvery[0]);
   }

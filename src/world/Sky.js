@@ -12,8 +12,8 @@ const STOPS = [
   { e: -16, sunI: 0.0,  sunC: 0x3a4a78, hemiI: 0.40, hSky: 0x44588c, hGnd: 0x222a3c, fog: 0x222e54, star: 1.0,  skyMul: 0.05 },
   { e: -5,  sunI: 0.4,  sunC: 0xff7a44, hemiI: 0.46, hSky: 0x5a6a94, hGnd: 0x2e2730, fog: 0x5a4258, star: 0.5,  skyMul: 0.30 },
   { e: 4,   sunI: 2.3,  sunC: 0xffac60, hemiI: 0.58, hSky: 0x9ab2d6, hGnd: 0x4a4630, fog: 0xe6c4a2, star: 0.0,  skyMul: 0.82 },
-  { e: 18,  sunI: 3.0,  sunC: 0xffe2ac, hemiI: 0.70, hSky: 0xbcd8ec, hGnd: 0x4a5a33, fog: 0xb9c8a6, star: 0.0,  skyMul: 0.92 },
-  { e: 40,  sunI: 3.1,  sunC: 0xffeece, hemiI: 0.78, hSky: 0xb4d2ee, hGnd: 0x55603a, fog: 0xb0c2a4, star: 0.0,  skyMul: 1.0 },
+  { e: 18,  sunI: 2.7,  sunC: 0xffe2ac, hemiI: 0.64, hSky: 0xb4d2ea, hGnd: 0x46552f, fog: 0xa6b994, star: 0.0,  skyMul: 0.92 },
+  { e: 40,  sunI: 2.7,  sunC: 0xffeece, hemiI: 0.70, hSky: 0xacccea, hGnd: 0x4e5836, fog: 0x9eb38f, star: 0.0,  skyMul: 1.0 },
 ];
 
 const _cA = new THREE.Color(), _cB = new THREE.Color(), _grey = new THREE.Color();
@@ -39,7 +39,7 @@ export class SkySystem {
   constructor(scene, opts = {}) {
     this.scene = scene;
     this.time = opts.startTime ?? 0.32;     // start mid-morning
-    this.dayLength = opts.dayLength ?? 210;  // seconds for a full cycle
+    this.dayLength = opts.dayLength ?? 260;  // seconds for a full cycle
     this.peakElevation = 34;                 // keep the sun warm & low-ish
 
     this.sky = new Sky();
@@ -144,7 +144,8 @@ export class SkySystem {
     const TAU = Math.PI * 2;
 
     // Sun + moon elevation/azimuth.
-    const sunElev = this.peakElevation * Math.sin((this.time - 0.25) * TAU);
+    // Slightly biased upward so daytime lasts a bit longer than night.
+    const sunElev = this.peakElevation * 0.92 * Math.sin((this.time - 0.25) * TAU) + 4.5;
     this.sunElev = sunElev;
     const sunAzi = 90 + this.time * 300;
     this._dir(sunElev, sunAzi, this.sunDir);

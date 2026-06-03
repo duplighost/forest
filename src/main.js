@@ -172,8 +172,10 @@ function applyCmd() {
     camera.distance = 28; camera.pitch = 0.5; camera.yaw = 0.4;
     sky.setTime(0.46); sky.dayLength = 1e9;
   } else if (cmd === 'face') {
-    camera.yaw = Math.PI; camera.pitch = 0.05; camera.distance = 3.0;
-    sky.setTime(0.5); sky.dayLength = 1e9; // high sun, not behind the squirrel
+    sky.setTime(0.3); sky.dayLength = 1e9;
+    // golden hour, sun behind the camera, squirrel turned to face us
+    camera.yaw = 0; camera.pitch = 0.04; camera.distance = 3.0;
+    player.facing = Math.PI;
   } else if (cmd === 'climb') {
     let tree = null, best = Infinity;
     for (const tr of world.activeTrees) {
