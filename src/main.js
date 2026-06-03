@@ -88,6 +88,26 @@ for (const ev of ['keydown', 'pointerdown', 'touchstart', 'wheel']) {
   window.addEventListener(ev, interact, { once: true });
 }
 
+// --- idle breathing vignette + wordless photo mode ----------------------
+const idleEl = document.getElementById('idle');
+const photoEl = document.getElementById('photo');
+const shutterEl = document.getElementById('shutter');
+const flashEl = document.getElementById('flash');
+let idleT = 0, photoMode = false, captureNext = false;
+function setPhoto(on) {
+  photoMode = on;
+  photoEl.classList.toggle('show', on);
+  shutterEl.classList.toggle('show', on);
+  if (on) { hint.classList.add('gone'); idleEl.classList.remove('show'); }
+}
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'KeyP') setPhoto(!photoMode);
+  else if (e.code === 'Enter' && photoMode) captureNext = true;
+});
+shutterEl.addEventListener('click', () => { captureNext = true; });
+// three-finger tap toggles photo mode on touch
+window.addEventListener('touchstart', (e) => { if (e.touches.length >= 3) setPhoto(!photoMode); });
+
 // --- screenshot pose hooks ----------------------------------------------
 const cmd = (location.hash || '').replace('#', '');
 function applyCmd() {
@@ -341,6 +361,7 @@ function frame(now) {
   windUniforms.uGlowAmt.value = 1.35 * sky.dayAmount * (1 - weather.cloudiness * 0.7);
   updateGodRays();
   ambience.update(dt, player.state, player.speed, weather.wetness);
+  ambience.glide(dt, player.state === 'air', player.speed);
 
   // Speed rush: widen the FOV a touch as you pick up glide speed.
   const targetFov = CAMERA.fov + THREE.MathUtils.clamp((player.speed - 12) / 18, 0, 1) * 11;
@@ -350,6 +371,26 @@ function frame(now) {
   }
 
   engine.render();
+
+  // photo-mode capture (render is fresh in this tick)
+  if (captureNext) {
+    captureNext = false;
+    try {
+      const a = document.createElement('a');
+      a.href = engine.renderer.domElement.toDataURL('image/png');
+      a.download = 'glide-' + Date.now() + '.png';
+      a.click();
+      flashEl.classList.remove('go'); void flashEl.offsetWidth; flashEl.classList.add('go');
+    } catch (e) { /* ignore */ }
+  }
+
+  // idle breathing vignette (not while moving or in photo mode)
+  if (!cmd) {
+    const activeNow = player.speed > 0.6 || input.move.lengthSq() > 0.01 || input.action || photoMode || !started;
+    if (activeNow) { idleT = 0; if (!photoMode) idleEl.classList.remove('show'); }
+    else { idleT += dt; if (idleT > 5) idleEl.classList.add('show'); }
+  }
+
   if (!started && now > 150) start();
   requestAnimationFrame(frame);
 }

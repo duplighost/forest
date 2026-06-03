@@ -92,6 +92,42 @@ export class Ambience {
     });
   }
 
+  // A soft bell note from a warm pentatonic scale (used for glide chimes).
+  _bell(vol, freq) {
+    const ctx = this.ctx, t = ctx.currentTime;
+    const out = ctx.createGain();
+    out.gain.value = 0;
+    const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+    if (pan) { pan.pan.value = Math.random() * 1.4 - 0.7; out.connect(pan).connect(this.master); }
+    else out.connect(this.master);
+    [1, 2, 3].forEach((h, i) => {
+      const o = ctx.createOscillator();
+      o.type = 'sine';
+      o.frequency.value = freq * h;
+      const g = ctx.createGain();
+      g.gain.value = (i === 0 ? 1 : 0.28 / i);
+      o.connect(g).connect(out);
+      o.start(t); o.stop(t + 2.2);
+    });
+    out.gain.setValueAtTime(0, t);
+    out.gain.linearRampToValueAtTime(vol, t + 0.02);
+    out.gain.exponentialRampToValueAtTime(0.0008, t + 1.8 + Math.random());
+  }
+
+  // Called each frame while airborne; chimes get more frequent and louder the
+  // faster you glide, so a big swooping glide rings out.
+  glide(dt, airborne, speed) {
+    if (!this.started || !this.ctx) return;
+    const amt = airborne ? Math.min(1, Math.max(0, (speed - 11) / 18)) : 0;
+    this._chimeT = (this._chimeT || 0) - dt;
+    if (amt > 0.12 && this._chimeT <= 0) {
+      this._chimeT = 0.25 + Math.random() * (1.6 - amt * 1.2);
+      const scale = [261.6, 293.7, 329.6, 392.0, 440.0, 523.3, 587.3]; // C pentatonic-ish
+      const f = scale[(Math.random() * scale.length) | 0] * (Math.random() < 0.3 ? 2 : 1);
+      this._bell(0.05 + amt * 0.14, f);
+    }
+  }
+
   _chirp() {
     const ctx = this.ctx;
     const t = ctx.currentTime;

@@ -100,6 +100,7 @@ export class Engine {
       antialias: true,
       powerPreference: 'high-performance',
       stencil: false,
+      preserveDrawingBuffer: true, // so photo-mode capture works
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.setSize(window.innerWidth, window.innerHeight);

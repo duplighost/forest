@@ -51,11 +51,47 @@
       #hint.show { opacity: 0.9; }
       #hint.gone { opacity: 0 !important; }
       #hint svg { width: 46px; height: 46px; }
+
+      /* Wordless breathing vignette while idle. */
+      #idle {
+        position: fixed; inset: 0; z-index: 8; pointer-events: none; opacity: 0;
+        transition: opacity 2.5s ease;
+        background: radial-gradient(132% 122% at 50% 47%, rgba(0,0,0,0) 50%, rgba(14,24,18,0.42) 100%);
+      }
+      #idle.show { opacity: 1; animation: idlebreath 6s ease-in-out infinite; }
+      @keyframes idlebreath { 0%, 100% { opacity: 0.68; } 50% { opacity: 1; } }
+      #idle::after {
+        content: '🍃'; position: absolute; left: 50%; bottom: 7%; transform: translateX(-50%);
+        font-size: 30px; opacity: 0.55; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.3));
+        animation: idlebob 5s ease-in-out infinite;
+      }
+      @keyframes idlebob { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-9px); } }
+
+      /* Photo mode: a slim cinematic frame + wordless shutter button. */
+      #photo { position: fixed; inset: 0; z-index: 8; pointer-events: none; opacity: 0; transition: opacity 0.5s ease; }
+      #photo.show { opacity: 1; }
+      #photo .bar { position: absolute; left: 0; right: 0; height: 8.5%; background: rgba(8,10,9,0.82); }
+      #photo .bar.top { top: 0; } #photo .bar.bottom { bottom: 0; }
+      #shutter {
+        position: fixed; right: 22px; bottom: calc(8.5% + 18px); z-index: 9; width: 58px; height: 58px;
+        border-radius: 50%; border: 3px solid rgba(255,255,255,0.85); background: rgba(255,255,255,0.25);
+        display: none; cursor: pointer; -webkit-tap-highlight-color: transparent;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+      }
+      #shutter::after { content: ''; position: absolute; inset: 7px; border-radius: 50%; background: rgba(255,255,255,0.92); }
+      #shutter.show { display: block; }
+      #flash { position: fixed; inset: 0; z-index: 20; background: #fff; opacity: 0; pointer-events: none; }
+      #flash.go { animation: flash 0.4s ease; }
+      @keyframes flash { 0% { opacity: 0.9; } 100% { opacity: 0; } }
     </style>
   </head>
   <body>
     <div id="app"></div>
     <div id="veil"><div class="orb"></div></div>
+    <div id="idle"></div>
+    <div id="photo"><div class="bar top"></div><div class="bar bottom"></div></div>
+    <button id="shutter" aria-label="capture"></button>
+    <div id="flash"></div>
     <div id="hint">
       <!-- WASD glyph -->
       <svg viewBox="0 0 120 80" fill="none">
