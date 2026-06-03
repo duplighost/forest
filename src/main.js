@@ -173,11 +173,23 @@ function applyCmd() {
   } else if (cmd === 'deer') {
     camera.distance = 28; camera.pitch = 0.5; camera.yaw = 0.4;
     sky.setTime(0.46); sky.dayLength = 1e9;
+  } else if (cmd === 'model') {
+    // clean model inspection: no fog, no post wash
+    engine.bloom.enabled = false; engine.godrays.enabled = false; engine.grade.enabled = false;
+    engine.scene.fog.near = 9000; engine.scene.fog.far = 9001;
+    sky.setTime(0.42); sky.dayLength = 1e9;
+    camera.yaw = Math.PI; camera.pitch = 0.05; camera.distance = 2.7;
+    player.facing = 0;
+  } else if (cmd === 'pose') {
+    // standing, gameplay-distance 3/4, camera angled down so ground (not bright
+    // sky) is behind the squirrel
+    sky.setTime(0.5); sky.dayLength = 1e9;
+    camera.yaw = 0.6; camera.pitch = 0.32; camera.distance = 5.5;
+    player.facing = 0;
   } else if (cmd === 'face') {
-    sky.setTime(0.3); sky.dayLength = 1e9;
-    // golden hour, sun behind the camera, squirrel turned to face us
-    camera.yaw = 0; camera.pitch = 0.04; camera.distance = 3.0;
-    player.facing = Math.PI;
+    sky.setTime(0.5); sky.dayLength = 1e9;
+    camera.yaw = Math.PI; camera.pitch = 0.28; camera.distance = 4.0;
+    player.facing = 0;
   } else if (cmd === 'climb') {
     let tree = null, best = Infinity;
     for (const tr of world.activeTrees) {
