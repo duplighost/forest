@@ -1,0 +1,71 @@
+import * as THREE from 'three';
+
+// Soft drifting motes that catch the golden light — pure atmosphere.
+function softSprite() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(255,250,230,1)');
+  g.addColorStop(0.3, 'rgba(255,244,210,0.7)');
+  g.addColorStop(1, 'rgba(255,240,200,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 64, 64);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+export class Particles {
+  constructor(scene, count = 320) {
+    this.count = count;
+    this.range = new THREE.Vector3(70, 34, 70);
+    const pos = new Float32Array(count * 3);
+    this.seed = new Float32Array(count);
+    for (let i = 0; i < count; i++) {
+      pos[i * 3] = (Math.random() - 0.5) * this.range.x;
+      pos[i * 3 + 1] = Math.random() * this.range.y;
+      pos[i * 3 + 2] = (Math.random() - 0.5) * this.range.z;
+      this.seed[i] = Math.random() * 1000;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    this.geo = geo;
+
+    const mat = new THREE.PointsMaterial({
+      size: 0.5,
+      map: softSprite(),
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      opacity: 0.7,
+      sizeAttenuation: true,
+    });
+    this.points = new THREE.Points(geo, mat);
+    this.points.frustumCulled = false;
+    this.points.renderOrder = 2;
+    scene.add(this.points);
+    this._base = new THREE.Vector3();
+  }
+
+  update(t, camPos) {
+    // Keep the field centered on the camera; drift motes and wrap within the box.
+    const arr = this.geo.attributes.position.array;
+    const r = this.range;
+    const ox = camPos.x - r.x / 2, oz = camPos.z - r.z / 2;
+    for (let i = 0; i < this.count; i++) {
+      const s = this.seed[i];
+      let x = arr[i * 3], y = arr[i * 3 + 1], z = arr[i * 3 + 2];
+      y += (0.18 + (s % 1) * 0.12) * 0.016 * 16; // slow rise (frame-ish)
+      x += Math.sin(t * 0.4 + s) * 0.01;
+      z += Math.cos(t * 0.33 + s * 1.3) * 0.01;
+      // wrap relative to camera
+      if (y > camPos.y + r.y * 0.6) y = camPos.y - r.y * 0.2;
+      const lx = x - ox, lz = z - oz;
+      if (lx < 0) x += r.x; else if (lx > r.x) x -= r.x;
+      if (lz < 0) z += r.z; else if (lz > r.z) z -= r.z;
+      arr[i * 3] = x; arr[i * 3 + 1] = y; arr[i * 3 + 2] = z;
+    }
+    this.geo.attributes.position.needsUpdate = true;
+  }
+}

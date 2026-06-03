@@ -1,0 +1,21 @@
+{
+  "name": "glide",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Glide — play as an adorable Japanese dwarf flying squirrel in an endless, beautiful forest.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --host",
+    "shot": "node tools/screenshot.mjs"
+  },
+  "dependencies": {
+    "simplex-noise": "^4.0.3",
+    "three": "^0.171.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.60.0",
+    "vite": "^6.0.7"
+  }
+}
