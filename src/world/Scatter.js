@@ -4,6 +4,7 @@ import { hash2, fbm2, noise2D } from './Noise.js';
 import { terrainHeight, terrainSlope } from './Terrain.js';
 import { WORLD, COLORS } from './../config.js';
 import { windUniforms, makeFoliageMaterial } from './TreeFactory.js';
+import { grassSeason, snowAt, flowerAt, leafSeason } from './Biome.js';
 
 // ---- shared materials ----------------------------------------------------
 const grassWind = { uTime: windUniforms.uTime, uWind: { value: 0.10 } };
@@ -49,8 +50,8 @@ function addAttrs(geo, color, tip) {
 
 function bladeTuft() {
   const blades = [];
-  const baseC = new THREE.Color(COLORS.grassLush).multiplyScalar(0.7);
-  const tipC = new THREE.Color(COLORS.grassDry);
+  // Greyscale gradient (dark root → bright tip); the actual hue comes from the
+  // per-instance season colour, so grass matches its biome.
   for (let i = 0; i < 5; i++) {
     const h = 0.42 + Math.random() * 0.26;
     const w = 0.06;
@@ -64,12 +65,11 @@ function bladeTuft() {
     const n = ng.attributes.position.count;
     const col = new Float32Array(n * 3);
     const aTip = new Float32Array(n);
-    const c = new THREE.Color();
     for (let j = 0; j < n; j++) {
       const y = ng.attributes.position.getY(j);
       const f = THREE.MathUtils.clamp(y / h, 0, 1);
-      c.copy(baseC).lerp(tipC, f);
-      col[j * 3] = c.r; col[j * 3 + 1] = c.g; col[j * 3 + 2] = c.b;
+      const v = 0.55 + f * 0.5;
+      col[j * 3] = v; col[j * 3 + 1] = v; col[j * 3 + 2] = v;
       aTip[j] = f * f;
     }
     ng.setAttribute('color', new THREE.BufferAttribute(col, 3));
@@ -130,9 +130,9 @@ function rock(rng) {
   return addAttrs(g, c, 0);
 }
 
-function shrub(rng) {
+function shrub(rng, x = 0, z = 0) {
   const parts = [];
-  const c = new THREE.Color(COLORS.leafC).lerp(new THREE.Color(COLORS.leafA), rng());
+  const c = new THREE.Color(leafSeason(x, z, rng));
   for (let i = 0; i < 3; i++) {
     const b = new THREE.IcosahedronGeometry(0.3 + rng() * 0.25, 1);
     b.translate((rng() - 0.5) * 0.4, 0.25 + rng() * 0.2, (rng() - 0.5) * 0.4);
@@ -154,21 +154,22 @@ export class Scatter {
     const size = WORLD.chunkSize;
     const ox = cx * size, oz = cz * size;
 
-    // ---- grass (instanced) ----
+    // ---- grass (instanced, tinted to the local season) ----
     const cell = 2.6;
     const n = Math.floor(size / cell);
     const mats = [];
+    const gcolors = [];
     const dummy = new THREE.Object3D();
-    const cscale = new THREE.Color();
-    const colors = [];
+    const gc = new THREE.Color();
     for (let gz = 0; gz < n; gz++) {
       for (let gx = 0; gx < n; gx++) {
         const hx = cx * n + gx, hz = cz * n + gz;
         const r = hash2(hx, hz, 11);
         const lush = fbm2((ox + gx * cell) * 0.02, (oz + gz * cell) * 0.02, 2) * 0.5 + 0.5;
-        if (r > 0.45 + lush * 0.5) continue;
         const wx = ox + gx * cell + (hash2(hx, hz, 12) - 0.5) * cell;
         const wz = oz + gz * cell + (hash2(hx, hz, 13) - 0.5) * cell;
+        const snow = snowAt(wx, wz);
+        if (r > (0.45 + lush * 0.5) * (1 - snow * 0.6)) continue; // sparser under snow
         const h = terrainHeight(wx, wz);
         if (h < WORLD.waterLevel + 0.3) continue;
         if (terrainSlope(wx, wz) > 0.7) continue;
@@ -178,17 +179,17 @@ export class Scatter {
         dummy.scale.set(s, s * (0.8 + lush * 0.5), s);
         dummy.updateMatrix();
         mats.push(dummy.matrix.clone());
-        const tint = 0.8 + noise2D(wx * 0.05, wz * 0.05) * 0.25;
-        cscale.setRGB(tint, tint, tint);
-        colors.push(tint);
+        grassSeason(wx, wz, gc).multiplyScalar(0.82 + noise2D(wx * 0.05, wz * 0.05) * 0.3);
+        gcolors.push(gc.clone());
       }
     }
     if (mats.length) {
       const inst = new THREE.InstancedMesh(this.grassGeo, this.grassMat, mats.length);
       inst.castShadow = false;
       inst.receiveShadow = true;
-      for (let i = 0; i < mats.length; i++) inst.setMatrixAt(i, mats[i]);
+      for (let i = 0; i < mats.length; i++) { inst.setMatrixAt(i, mats[i]); inst.setColorAt(i, gcolors[i]); }
       inst.instanceMatrix.needsUpdate = true;
+      if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
       inst.frustumCulled = true;
       inst.boundingSphere = new THREE.Sphere(new THREE.Vector3(ox + size / 2, 0, oz + size / 2), size);
       group.add(inst);
@@ -208,13 +209,16 @@ export class Scatter {
         const h = terrainHeight(wx, wz);
         if (h < WORLD.waterLevel + 0.2) continue;
         const slope = terrainSlope(wx, wz);
-        const rng = () => hash2(hx, hz, 30 + (det.length % 7));
         const pick = hash2(hx, hz, 24);
+        const snow = snowAt(wx, wz);
+        const flowers = flowerAt(wx, wz);
         let g;
         if (slope > 0.5) g = rock(mulberryFrom(hx, hz, 1));
-        else if (pick < 0.3) g = mushroom(mulberryFrom(hx, hz, 2));
-        else if (pick < 0.62) g = flower(mulberryFrom(hx, hz, 3));
-        else if (pick < 0.82) g = shrub(mulberryFrom(hx, hz, 4));
+        else if (snow > 0.5) {                                  // winter: rocks & frosted shrubs
+          g = pick < 0.55 ? rock(mulberryFrom(hx, hz, 1)) : shrub(mulberryFrom(hx, hz, 4), wx, wz);
+        } else if (pick < 0.32 * flowers) g = flower(mulberryFrom(hx, hz, 3));
+        else if (pick < 0.5) g = mushroom(mulberryFrom(hx, hz, 2));
+        else if (pick < 0.78) g = shrub(mulberryFrom(hx, hz, 4), wx, wz);
         else g = rock(mulberryFrom(hx, hz, 5));
         const s = 0.7 + hash2(hx, hz, 25) * 0.8;
         const m = new THREE.Matrix4();

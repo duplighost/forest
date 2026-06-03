@@ -10,6 +10,7 @@ import { Critters } from './world/Critters.js';
 import { FX } from './world/FX.js';
 import { Backdrop } from './world/Backdrop.js';
 import { terrainHeight, terrainSlope } from './world/Terrain.js';
+import { seasonIndex } from './world/Biome.js';
 import { FollowCamera } from './player/FollowCamera.js';
 import { Squirrel } from './player/Squirrel.js';
 import { Controller } from './player/Controller.js';
@@ -106,8 +107,23 @@ function applyCmd() {
     sky.dayLength = 1e9;
     player.position.y += 30; player.state = 'air'; player.velocity.set(0, 0, 4);
     camera.yaw = 2.3; camera.pitch = 0.05; camera.distance = 10;
+  } else if (['spring', 'summer', 'autumn', 'winter'].includes(cmd)) {
+    const target = { spring: 0, summer: 1, autumn: 2, winter: 3 }[cmd];
+    let found = null;
+    for (let r = 0; r < 3500 && !found; r += 36)
+      for (let a = 0; a < 6.28; a += 0.25) {
+        const x = Math.cos(a) * r, z = Math.sin(a) * r;
+        if (seasonIndex(x, z) === target && terrainHeight(x, z) > WORLD.waterLevel + 1) { found = new THREE.Vector3(x, terrainHeight(x, z), z); break; }
+      }
+    if (found) {
+      player.position.copy(found); world.update(found); world.buildAllPending();
+      player.position.y += 26; player.state = 'air'; player.velocity.set(0, 0, 4);
+      camera.yaw = 2.1; camera.pitch = 0.16; camera.distance = 10;
+      sky.setTime(0.32); sky.dayLength = 1e9;
+    }
   } else if (cmd === 'face') {
     camera.yaw = Math.PI; camera.pitch = 0.05; camera.distance = 3.0;
+    sky.setTime(0.5); sky.dayLength = 1e9; // high sun, not behind the squirrel
   } else if (cmd === 'climb') {
     let tree = null, best = Infinity;
     for (const tr of world.activeTrees) {
@@ -179,7 +195,7 @@ function updateGodRays() {
   engine.camera.getWorldDirection(_camFwd);
   const facing = _camFwd.dot(sky.sunDir);
   const onScreen = _sunWorld.z < 1 && Math.abs(_sunWorld.x) < 1.6 && Math.abs(_sunWorld.y) < 1.6;
-  const inten = onScreen ? THREE.MathUtils.smoothstep(facing, 0.2, 0.75) * 0.85 : 0;
+  const inten = onScreen ? THREE.MathUtils.smoothstep(facing, 0.3, 0.85) * 0.5 : 0;
   const u = engine.godrays.uniforms;
   u.uSun.value.set(_sunWorld.x * 0.5 + 0.5, _sunWorld.y * 0.5 + 0.5);
   u.uIntensity.value += (inten - u.uIntensity.value) * 0.08;

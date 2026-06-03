@@ -4,10 +4,12 @@ import { hash2, fbm2 } from './Noise.js';
 import { terrainHeight, terrainSlope } from './Terrain.js';
 import { WORLD } from '../config.js';
 import { makeTreeTemplate, makeFoliageMaterial, windUniforms } from './TreeFactory.js';
+import { leafSeason } from './Biome.js';
 
 const TEMPLATES = 9;
 const _m = new THREE.Matrix4();
 const _v = new THREE.Vector3();
+const _leaf = new THREE.Color();
 
 export class Forest {
   constructor() {
@@ -59,6 +61,19 @@ export class Forest {
 
         const g = tpl.geometry.clone();
         g.applyMatrix4(_m);
+
+        // Recolour this tree's leaves to its local season.
+        let salt = 70;
+        const rng = () => hash2(hx, hz, salt++);
+        _leaf.set(leafSeason(wx, wz, rng));
+        const col = g.getAttribute('color');
+        const wind = g.getAttribute('aWind');
+        for (let vi = 0; vi < col.count; vi++) {
+          if (wind.getX(vi) > 0.28) {           // a leaf vertex
+            const j = 0.84 + (((vi * 2654435761) >>> 0) % 1000) / 1000 * 0.32;
+            col.setXYZ(vi, _leaf.r * j, _leaf.g * j, _leaf.b * j);
+          }
+        }
         geos.push(g);
 
         trees.push(this._record(tpl, _m.clone(), wx, wz, h, scale));

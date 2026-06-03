@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { warpedFbm2, fbm2, noise2D } from './Noise.js';
 import { WORLD, COLORS } from '../config.js';
+import { groundSeason, snowAt } from './Biome.js';
 
 // ---------------------------------------------------------------------------
 // The height field. ONE source of truth, sampled by both the terrain mesh and
@@ -57,24 +58,30 @@ const cDry = new THREE.Color(COLORS.grassDry);
 const cDirt = new THREE.Color(COLORS.dirt);
 const cRock = new THREE.Color(COLORS.rock);
 const cSand = new THREE.Color(COLORS.sand);
+const cSnow = new THREE.Color(0xeef3f8);
 
 export function groundColor(x, z, height, slope, target = _c) {
-  // base grass, with patches of lush/dry from a tint noise
-  const tint = noise2D(x * 0.03, z * 0.03) * 0.5 + 0.5;
-  target.copy(cGrass).lerp(cLush, THREE.MathUtils.smoothstep(tint, 0.55, 0.9));
-  target.lerp(cDry, THREE.MathUtils.smoothstep(tint, 0.0, 0.35) * 0.7);
+  // base ground colour comes from the local season (spring/summer/autumn/winter)
+  groundSeason(x, z, target);
+  const tint = noise2D(x * 0.035, z * 0.035) * 0.5 + 0.5;
+  target.multiplyScalar(0.9 + tint * 0.18);
+
+  const snow = snowAt(x, z) * (1.0 - THREE.MathUtils.smoothstep(slope, 0.5, 0.95));
 
   // dirt/rock on steeper slopes
   const rocky = THREE.MathUtils.smoothstep(slope, 0.45, 0.9);
-  target.lerp(cDirt, THREE.MathUtils.smoothstep(slope, 0.3, 0.6) * 0.8);
-  target.lerp(cRock, rocky);
+  target.lerp(cDirt, THREE.MathUtils.smoothstep(slope, 0.3, 0.6) * 0.7 * (1 - snow));
+  target.lerp(cRock, rocky * (1 - snow * 0.8));
 
-  // sandy shoreline near the water line
+  // sandy shoreline near the water line (no sand under snow)
   const shore = 1.0 - THREE.MathUtils.smoothstep(Math.abs(height - WORLD.waterLevel), 0.0, 1.6);
-  target.lerp(cSand, shore * 0.85);
+  target.lerp(cSand, shore * 0.82 * (1 - snow));
+
+  // winter snow blanket on flatter ground
+  target.lerp(cSnow, snow * 0.94);
 
   // gentle per-vertex value variation so large fields aren't flat
-  const v = 0.92 + noise2D(x * 0.5, z * 0.5) * 0.08;
+  const v = 0.93 + noise2D(x * 0.5, z * 0.5) * 0.07;
   target.multiplyScalar(v);
   return target;
 }

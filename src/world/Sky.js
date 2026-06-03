@@ -12,8 +12,8 @@ const STOPS = [
   { e: -16, sunI: 0.0,  sunC: 0x3a4a78, hemiI: 0.40, hSky: 0x44588c, hGnd: 0x222a3c, fog: 0x222e54, star: 1.0,  skyMul: 0.05 },
   { e: -5,  sunI: 0.4,  sunC: 0xff7a44, hemiI: 0.46, hSky: 0x5a6a94, hGnd: 0x2e2730, fog: 0x5a4258, star: 0.5,  skyMul: 0.30 },
   { e: 4,   sunI: 2.3,  sunC: 0xffac60, hemiI: 0.58, hSky: 0x9ab2d6, hGnd: 0x4a4630, fog: 0xe6c4a2, star: 0.0,  skyMul: 0.82 },
-  { e: 18,  sunI: 3.0,  sunC: 0xffe2ac, hemiI: 0.70, hSky: 0xbcd8ec, hGnd: 0x4a5a33, fog: 0xcdd6bd, star: 0.0,  skyMul: 0.92 },
-  { e: 40,  sunI: 3.2,  sunC: 0xffeece, hemiI: 0.80, hSky: 0xb4d2ee, hGnd: 0x55603a, fog: 0xc9d4c0, star: 0.0,  skyMul: 1.0 },
+  { e: 18,  sunI: 3.0,  sunC: 0xffe2ac, hemiI: 0.70, hSky: 0xbcd8ec, hGnd: 0x4a5a33, fog: 0xb9c8a6, star: 0.0,  skyMul: 0.92 },
+  { e: 40,  sunI: 3.1,  sunC: 0xffeece, hemiI: 0.78, hSky: 0xb4d2ee, hGnd: 0x55603a, fog: 0xb0c2a4, star: 0.0,  skyMul: 1.0 },
 ];
 
 const _cA = new THREE.Color(), _cB = new THREE.Color();

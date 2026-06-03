@@ -10,7 +10,7 @@ export const windUniforms = {
   uWind: { value: 0.22 },
   uSunView: { value: new THREE.Vector3(0, 0, 1) },
   uGlowColor: { value: new THREE.Color(0xffe1a0) },
-  uGlowAmt: { value: 2.1 },
+  uGlowAmt: { value: 1.35 },
 };
 
 // One material for all bark+foliage. Vertex colors carry bark/leaf variation,

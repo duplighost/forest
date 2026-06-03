@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { COLORS } from '../config.js';
 
 // Soft white & fluffy, like a real Japanese dwarf flying squirrel (momonga).
-const fur = new THREE.MeshStandardMaterial({ color: 0xe9e8e2, roughness: 0.93, metalness: 0 });
+const fur = new THREE.MeshStandardMaterial({ color: 0xdedcd3, roughness: 0.94, metalness: 0 });
 const furDark = new THREE.MeshStandardMaterial({ color: 0xccc7bc, roughness: 0.9 }); // soft grey accents
 const belly = new THREE.MeshStandardMaterial({ color: 0xf7f5ef, roughness: 0.85 });
 const eyeMat = new THREE.MeshStandardMaterial({ color: 0x0d0b09, roughness: 0.12, metalness: 0.15 });

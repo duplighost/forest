@@ -45,8 +45,8 @@ export const WORLD = {
   maxHeight: 26,        // amplitude of the big terrain hills
   waterLevel: -2.2,     // global sea/pond level
   treesPerChunk: 14,    // average; varies with local "forest density" noise
-  fogNear: 115,
-  fogFar: 345,
+  fogNear: 145,
+  fogFar: 355,
 };
 
 // ---------------------------------------------------------------------------
