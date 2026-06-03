@@ -19,6 +19,7 @@ export class Water {
       uFogColor: { value: new THREE.Color(COLORS.fog) },
       uFogNear: { value: WORLD.fogNear },
       uFogFar: { value: WORLD.fogFar },
+      uRain: { value: 0 },
     };
 
     const mat = new THREE.ShaderMaterial({
@@ -55,11 +56,35 @@ export class Water {
       fragmentShader: /* glsl */ `
         precision highp float;
         uniform vec3 uSunDir, uDeep, uShallow, uSkyHorizon, uSkyTop, uSun, uFogColor;
-        uniform float uTime, uFogNear, uFogFar;
+        uniform float uTime, uFogNear, uFogFar, uRain;
         varying vec3 vWorld;
         varying vec3 vNormal;
+        float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
+        // expanding rain rings in each grid cell near the fragment
+        float ripples(vec2 p, float t){
+          float sum = 0.0;
+          vec2 ip = floor(p);
+          for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
+            vec2 cell = ip + vec2(float(i), float(j));
+            float s = hash(cell);
+            vec2 c = cell + vec2(hash(cell+3.1), hash(cell+7.7));
+            float ph = t * 1.6 + s * 12.0;
+            float age = fract(ph);
+            float rad = age * 0.55;
+            float d = length(p - c);
+            sum += smoothstep(0.05, 0.0, abs(d - rad)) * (1.0 - age) * step(0.5, hash(cell + floor(ph)));
+          }
+          return sum;
+        }
         void main(){
           vec3 N = normalize(vNormal);
+          if (uRain > 0.01) {
+            float e = 0.12;
+            float r0 = ripples(vWorld.xz * 1.3, uTime);
+            float rx = ripples(vWorld.xz * 1.3 + vec2(e, 0.0), uTime);
+            float rz = ripples(vWorld.xz * 1.3 + vec2(0.0, e), uTime);
+            N = normalize(N + vec3(r0 - rx, 0.0, r0 - rz) * uRain * 2.2);
+          }
           vec3 V = normalize(cameraPosition - vWorld);
           float fres = pow(1.0 - max(dot(N, V), 0.0), 3.0);
           // sky reflection approximation

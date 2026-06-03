@@ -12,6 +12,8 @@ import { Backdrop } from './world/Backdrop.js';
 import { Weather } from './world/Weather.js';
 import { Wildlife } from './world/Wildlife.js';
 import { Fireflies } from './world/Fireflies.js';
+import { Footprints } from './world/Footprints.js';
+import { snowAt } from './world/Biome.js';
 import { terrainHeight, terrainSlope } from './world/Terrain.js';
 import { seasonIndex, leafSeason } from './world/Biome.js';
 import { FollowCamera } from './player/FollowCamera.js';
@@ -41,6 +43,7 @@ const particles = new Particles(engine.scene, LOW ? 170 : 320);
 const critters = new Critters(engine.scene, LOW ? 4 : 7);
 const wildlife = new Wildlife(engine.scene, LOW ? { flocks: 1, deer: 3 } : { flocks: 2, deer: 5 });
 const fireflies = new Fireflies(engine.scene, LOW ? 80 : 130);
+const footprints = new Footprints(engine.scene);
 const fx = new FX(engine.scene);
 const camera = new FollowCamera(engine.camera, input);
 const squirrel = new Squirrel();
@@ -144,6 +147,25 @@ function applyCmd() {
     player.position.y += 22; player.state = 'air'; player.velocity.set(0, 0, 5);
     camera.yaw = 2.1; camera.pitch = 0.12; camera.distance = 10;
     sky.setTime(0.4); sky.dayLength = 1e9;
+  } else if (cmd === 'ripples') {
+    let found = null;
+    for (let r = 0; r < 400 && !found; r += 8)
+      for (let a = 0; a < 6.28; a += 0.5) {
+        const x = spawn.x + Math.cos(a) * r, z = spawn.z + Math.sin(a) * r;
+        if (terrainHeight(x, z) < WORLD.waterLevel - 0.8) { found = new THREE.Vector3(x, WORLD.waterLevel, z); break; }
+      }
+    if (found) { player.position.copy(found); player.state = 'swim'; world.update(found); world.buildAllPending(); }
+    weather._cloudTarget = weather.cloudiness = 0.95; weather._wetTarget = weather.wetness = 1.0; weather.snowing = 0; weather._timer = 1e9;
+    camera.distance = 6.5; camera.pitch = 0.6; sky.setTime(0.4); sky.dayLength = 1e9;
+  } else if (cmd === 'tracks') {
+    let found = null;
+    for (let r = 0; r < 3500 && !found; r += 36)
+      for (let a = 0; a < 6.28; a += 0.25) {
+        const x = Math.cos(a) * r, z = Math.sin(a) * r;
+        if (seasonIndex(x, z) === 3 && terrainHeight(x, z) > WORLD.waterLevel + 1 && terrainSlope(x, z) < 0.35) { found = new THREE.Vector3(x, terrainHeight(x, z), z); break; }
+      }
+    if (found) { player.position.copy(found); player.state = 'ground'; world.update(found); world.buildAllPending(); }
+    camera.distance = 8; camera.pitch = 0.62; camera.yaw = 0; sky.setTime(0.45); sky.dayLength = 1e9;
   } else if (cmd === 'fireflies') {
     sky.setTime(0.95); sky.dayLength = 1e9; camera.distance = 7; camera.pitch = 0.04;
   } else if (cmd === 'deer') {
@@ -167,7 +189,7 @@ function applyCmd() {
 }
 applyCmd();
 
-let auto = cmd === 'auto' || cmd === 'run';
+let auto = cmd === 'auto' || cmd === 'run' || cmd === 'tracks';
 
 // Scripted self-test: run at a tree, scale it, leap, glide. Logs a timeline so
 // the movement chain can be verified headlessly.
@@ -256,6 +278,7 @@ function frame(now) {
   player.applyTransform(squirrel.group, dt);
   squirrel.update(dt, anim);
   camera.follow(dt, player);
+  footprints.update(dt, player, snowAt(player.position.x, player.position.z) > 0.5);
   // kick up dust when sprinting along the ground
   _trailT -= dt;
   if (player.state === 'ground' && player.speed > 13 && _trailT <= 0) {
@@ -294,6 +317,7 @@ function frame(now) {
   sky.update(dt, player.position, engine.camera.position, weather.cloudiness);
   // keep the water reflection and foliage glow in sync with the moving sun
   water.uniforms.uSunDir.value.copy(sky.sunDir);
+  water.uniforms.uRain.value = weather.wetness * (1 - weather.snowing);
   windUniforms.uSunView.value.copy(sky.sunDir).transformDirection(engine.camera.matrixWorldInverse);
   windUniforms.uGlowAmt.value = 1.35 * sky.dayAmount * (1 - weather.cloudiness * 0.7);
   updateGodRays();
