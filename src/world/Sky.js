@@ -9,8 +9,8 @@ import { Sky } from 'three/addons/objects/Sky.js';
 
 // Palette keyframes by sun elevation (degrees). Interpolated each frame.
 const STOPS = [
-  { e: -16, sunI: 0.0,  sunC: 0x3a4a78, hemiI: 0.40, hSky: 0x44588c, hGnd: 0x222a3c, fog: 0x222e54, star: 1.0,  skyMul: 0.05 },
-  { e: -5,  sunI: 0.4,  sunC: 0xff7a44, hemiI: 0.46, hSky: 0x5a6a94, hGnd: 0x2e2730, fog: 0x5a4258, star: 0.5,  skyMul: 0.30 },
+  { e: -16, sunI: 0.0,  sunC: 0x3a4a78, hemiI: 0.50, hSky: 0x4a5e94, hGnd: 0x28303f, fog: 0x232f56, star: 1.0,  skyMul: 0.05 },
+  { e: -5,  sunI: 0.5,  sunC: 0xff7a44, hemiI: 0.54, hSky: 0x5a6a94, hGnd: 0x2e2730, fog: 0x5a4258, star: 0.5,  skyMul: 0.30 },
   { e: 4,   sunI: 2.3,  sunC: 0xffac60, hemiI: 0.58, hSky: 0x9ab2d6, hGnd: 0x4a4630, fog: 0xe6c4a2, star: 0.0,  skyMul: 0.82 },
   { e: 18,  sunI: 2.7,  sunC: 0xffe2ac, hemiI: 0.64, hSky: 0xb4d2ea, hGnd: 0x46552f, fog: 0xa6b994, star: 0.0,  skyMul: 0.92 },
   { e: 40,  sunI: 2.7,  sunC: 0xffeece, hemiI: 0.70, hSky: 0xacccea, hGnd: 0x4e5836, fog: 0x9eb38f, star: 0.0,  skyMul: 1.0 },
@@ -163,7 +163,7 @@ export class SkySystem {
     this.sky.material.uniforms.sunPosition.value.copy(this.sunDir);
     this.sky.material.uniforms.rayleigh.value = 1.6 + p.skyMul * 1.4;
     this.sky.material.uniforms.mieCoefficient.value = 0.003 + (1 - p.skyMul) * 0.004;
-    this.sky.material.uniforms.uNightDim.value = Math.max(0.04, p.skyMul);
+    this.sky.material.uniforms.uNightDim.value = Math.max(0.04, p.skyMul) * 0.82;
 
     // Sun (key) light — dimmed under cloud.
     this.sun.color.copy(p.sunC);
