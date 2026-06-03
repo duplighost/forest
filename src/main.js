@@ -16,6 +16,7 @@ import { Footprints } from './world/Footprints.js';
 import { PondLife } from './world/PondLife.js';
 import { Streaks } from './world/Streaks.js';
 import { Wisp } from './world/Wisp.js';
+import { Aurora } from './world/Aurora.js';
 import { snowAt, flowerAt } from './world/Biome.js';
 import { terrainHeight, terrainSlope } from './world/Terrain.js';
 import { seasonIndex, leafSeason, seasonAt } from './world/Biome.js';
@@ -40,11 +41,12 @@ if (LOW) {
 const sky = new SkySystem(engine.scene);
 if (LOW) sky.sun.shadow.mapSize.set(1024, 1024);
 const backdrop = new Backdrop(engine.scene);
+const aurora = new Aurora(engine.scene);
 const weather = new Weather(engine.scene, { drops: LOW ? 1400 : 2600 });
 const world = new World(engine.scene);
 const water = new Water(engine.scene, sky.sunDir);
 const particles = new Particles(engine.scene, LOW ? 90 : 150);
-const critters = new Critters(engine.scene, LOW ? 4 : 7);
+const critters = new Critters(engine.scene, LOW ? 7 : 14);
 const wildlife = new Wildlife(engine.scene, LOW ? { flocks: 1, deer: 3 } : { flocks: 2, deer: 5 });
 const fireflies = new Fireflies(engine.scene, LOW ? 80 : 130);
 const footprints = new Footprints(engine.scene);
@@ -282,6 +284,21 @@ function applyCmd() {
       camera.yaw = Math.atan2(found.x - p.x, found.z - p.z);
       camera.pitch = 0.34; camera.distance = 6.5; sky.setTime(0.4); sky.dayLength = 1e9;
     }
+  } else if (cmd === 'aurora') {
+    // stand in a winter region at midnight and look up at the night sky
+    let found = null;
+    for (let r = 0; r < 3500 && !found; r += 36)
+      for (let a = 0; a < 6.28; a += 0.25) {
+        const x = Math.cos(a) * r, z = Math.sin(a) * r;
+        if (seasonIndex(x, z) === 3 && terrainHeight(x, z) > WORLD.waterLevel + 1.5 && terrainSlope(x, z) < 0.35) {
+          found = new THREE.Vector3(x, terrainHeight(x, z), z); break;
+        }
+      }
+    if (found) {
+      player.position.copy(found); world.update(found); world.buildAllPending();
+      camera.yaw = 0.7; camera.pitch = -0.55; camera.distance = 8;  // low cam, look up
+      sky.setTime(0.0); sky.dayLength = 1e9;
+    }
   }
 }
 applyCmd();
@@ -413,7 +430,7 @@ function frame(now) {
       player.position.z + (Math.random() - 0.5) * 24, col, wx, wz);
   }
 
-  critters.update(dt, player.position);
+  critters.update(dt, player.position, player.speed);
   wildlife.update(dt, player.position, t);
   pondlife.update(dt, t, player.position);
   fireflies.update(dt, t, player.position, sky.dayAmount);
@@ -433,6 +450,10 @@ function frame(now) {
   backdrop.update(engine.camera.position);
   weather.update(dt, engine.camera.position, sky.cloudTint);
   sky.update(dt, player.position, engine.camera.position, weather.cloudiness);
+  // aurora: gentle ribbons that fade in on a clear winter night
+  const winter = THREE.MathUtils.smoothstep(snowAt(player.position.x, player.position.z), 0.25, 0.8);
+  const nightAmt = THREE.MathUtils.clamp(1 - sky.dayAmount * 1.4, 0, 1);
+  aurora.update(engine.camera.position, t, winter * nightAmt * (1 - weather.cloudiness * 0.7));
   // keep the water reflection and foliage glow in sync with the moving sun
   water.uniforms.uSunDir.value.copy(sky.sunDir);
   water.uniforms.uRain.value = weather.wetness * (1 - weather.snowing);
@@ -478,7 +499,7 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 window.__GAME = {
-  engine, world, sky, player, camera, squirrel, input,
+  engine, world, sky, player, camera, squirrel, input, critters, wisp, aurora,
   debugInfo() {
     return {
       ready: true,
