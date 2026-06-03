@@ -76,7 +76,7 @@ export const PLAYER = {
   glideGravity: 6.0,       // much slower fall with the patagium out
   glideForward: 13.0,      // gentle constant forward pull while gliding
   glideMaxSpeed: 30.0,
-  glideTurn: 2.8,          // yaw rate while gliding (rad/s)
+  glideTurn: 3.3,          // yaw rate while gliding (rad/s) — responsive banking
   glidePitchDive: 9.0,     // diving trades height for speed
   glideLift: 0.6,          // pulling up converts speed to lift
   glideDrag: 0.28,

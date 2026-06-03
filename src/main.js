@@ -14,6 +14,7 @@ import { Wildlife } from './world/Wildlife.js';
 import { Fireflies } from './world/Fireflies.js';
 import { Footprints } from './world/Footprints.js';
 import { PondLife } from './world/PondLife.js';
+import { Streaks } from './world/Streaks.js';
 import { snowAt } from './world/Biome.js';
 import { terrainHeight, terrainSlope } from './world/Terrain.js';
 import { seasonIndex, leafSeason } from './world/Biome.js';
@@ -47,6 +48,8 @@ const fireflies = new Fireflies(engine.scene, LOW ? 80 : 130);
 const footprints = new Footprints(engine.scene);
 const fx = new FX(engine.scene);
 const pondlife = new PondLife(engine.scene, fx);
+const streaks = new Streaks(engine.scene, LOW ? 50 : 90);
+const _vdir = new THREE.Vector3();
 const camera = new FollowCamera(engine.camera, input);
 const squirrel = new Squirrel();
 engine.scene.add(squirrel.group);
@@ -313,10 +316,13 @@ function frame(now) {
   const anim = player.update(dt, input, camera);
   // Movement juice: react to state changes with little particle bursts.
   if (player.state !== prevState) {
-    if (player.state === 'swim') fx.splash(player.position);
+    if (player.state === 'swim') { fx.splash(player.position); camera.addShake(0.3); }
     else if (player.state === 'ground' && (prevState === 'air' || prevState === 'swim')) fx.dust(player.position);
-    else if (player.state === 'climb') fx.leaves(player.position);
+    else if (player.state === 'climb') { fx.leaves(player.position); camera.addShake(0.22); }
   }
+  // landing thump scaled to impact, + a faint rumble while gliding fast
+  if (anim.land > 0) camera.addShake(0.25 + anim.land * 0.55);
+  if (player.state === 'air' && player.speed > 21) camera.addShake(dt * (player.speed - 21) / 9 * 0.5);
   player.applyTransform(squirrel.group, dt);
   squirrel.update(dt, anim);
   camera.follow(dt, player);
@@ -327,6 +333,8 @@ function frame(now) {
     fx.footDust(player.position); _trailT = 0.06;
   }
   fx.update(dt);
+  _vdir.copy(player.velocity); if (_vdir.lengthSq() > 0.01) _vdir.normalize();
+  streaks.update(dt, engine.camera.position, _vdir, player.speed, player.state === 'air');
 
   world.update(player.position);
   world.update_anim(t);
@@ -370,7 +378,7 @@ function frame(now) {
   ambience.glide(dt, player.state === 'air', player.speed);
 
   // Speed rush: widen the FOV a touch as you pick up glide speed.
-  const targetFov = CAMERA.fov + THREE.MathUtils.clamp((player.speed - 12) / 18, 0, 1) * 11;
+  const targetFov = CAMERA.fov + THREE.MathUtils.clamp((player.speed - 10) / 18, 0, 1) * 15;
   if (Math.abs(engine.camera.fov - targetFov) > 0.01) {
     engine.camera.fov += (targetFov - engine.camera.fov) * (1 - Math.exp(-3 * dt));
     engine.camera.updateProjectionMatrix();

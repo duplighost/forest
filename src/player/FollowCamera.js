@@ -18,7 +18,12 @@ export class FollowCamera {
     this.right = new THREE.Vector3(1, 0, 0);
     this._idleLook = 0;
     this._initialized = false;
+    this.trauma = 0;           // camera shake (0..1), decays each frame
+    this.fov = CAMERA.fov;
   }
+
+  // Add a shake kick (e.g. on landing); trauma is squared for a punchy falloff.
+  addShake(t) { this.trauma = Math.min(1, this.trauma + t); }
 
   // Basis for camera-relative movement (flat XZ). The camera sits behind the
   // player looking along +forward, so screen-right is -(up × forward).
@@ -89,6 +94,16 @@ export class FollowCamera {
     // Keep the camera above the ground (and a touch above water).
     const groundY = terrainHeight(this.camera.position.x, this.camera.position.z) + CAMERA.collisionPad;
     if (this.camera.position.y < groundY) this.camera.position.y = groundY;
+
+    // Camera shake — punchy squared falloff, applied as a positional jitter.
+    if (this.trauma > 0.001) {
+      const s = this.trauma * this.trauma;
+      const t = performance.now() * 0.05;
+      this.camera.position.x += Math.sin(t * 1.7) * s * 0.5;
+      this.camera.position.y += Math.sin(t * 2.3 + 1.7) * s * 0.5;
+      this.camera.position.z += Math.sin(t * 1.9 + 3.1) * s * 0.4;
+      this.trauma = Math.max(0, this.trauma - dt * 1.8);
+    }
 
     const la = 1 - Math.exp(-CAMERA.lookLerp * dt);
     this._curLook.lerp(this.target, la);
