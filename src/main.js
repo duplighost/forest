@@ -18,6 +18,7 @@ import { Streaks } from './world/Streaks.js';
 import { snowAt, flowerAt } from './world/Biome.js';
 import { terrainHeight, terrainSlope } from './world/Terrain.js';
 import { seasonIndex, leafSeason } from './world/Biome.js';
+import { hash2 } from './world/Noise.js';
 import { FollowCamera } from './player/FollowCamera.js';
 import { Squirrel } from './player/Squirrel.js';
 import { Controller } from './player/Controller.js';
@@ -196,6 +197,26 @@ function applyCmd() {
   } else if (cmd === 'deer') {
     camera.distance = 28; camera.pitch = 0.5; camera.yaw = 0.4;
     sky.setTime(0.46); sky.dayLength = 1e9;
+  } else if (cmd === 'giant') {
+    let found = null;
+    for (let r = 0; r < 14 && !found; r++)
+      for (let cx2 = -r; cx2 <= r && !found; cx2++)
+        for (let cz2 = -r; cz2 <= r && !found; cz2++) {
+          if (Math.max(Math.abs(cx2), Math.abs(cz2)) !== r) continue;
+          if (hash2(cx2, cz2, 80) >= 0.12) continue;
+          const wx = cx2 * 64 + (0.25 + hash2(cx2, cz2, 81) * 0.5) * 64;
+          const wz = cz2 * 64 + (0.25 + hash2(cx2, cz2, 82) * 0.5) * 64;
+          const h = terrainHeight(wx, wz);
+          if (h > WORLD.waterLevel + 1 && terrainSlope(wx, wz) < 0.42) found = new THREE.Vector3(wx, h, wz);
+        }
+    if (found) {
+      player.position.set(found.x + 16, terrainHeight(found.x + 16, found.z + 11), found.z + 11);
+      world.update(player.position); world.buildAllPending();
+      camera.yaw = Math.atan2(found.x - player.position.x, found.z - player.position.z);
+      camera.pitch = -0.12; camera.distance = 9; sky.setTime(0.34); sky.dayLength = 1e9;
+      engine.bloom.enabled = false; engine.godrays.enabled = false; engine.grade.enabled = false;
+      engine.scene.fog.near = 9000; engine.scene.fog.far = 9001; particles.points.visible = false;
+    }
   } else if (cmd === 'thumb') {
     // clean, pretty card thumbnail: no fog haze, keep bloom/grade, golden light
     engine.scene.fog.near = 6000; engine.scene.fog.far = 6001;

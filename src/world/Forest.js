@@ -51,32 +51,21 @@ export class Forest {
         if (terrainSlope(wx, wz) > 0.62) continue;          // not on cliffs
 
         const ti = (hash2(hx, hz, 4) * TEMPLATES) | 0;
-        const tpl = this.templates[ti];
         const scale = 0.7 + hash2(hx, hz, 5) * 0.8;
         const rot = hash2(hx, hz, 6) * Math.PI * 2;
+        this._addTree(geos, trees, hx, hz, wx, wz, h, scale, rot, ti);
+      }
+    }
 
-        _m.makeRotationY(rot);
-        _m.scale(_v.set(scale, scale, scale));
-        _m.setPosition(wx, h - 0.3, wz);
-
-        const g = tpl.geometry.clone();
-        g.applyMatrix4(_m);
-
-        // Recolour this tree's leaves to its local season.
-        let salt = 70;
-        const rng = () => hash2(hx, hz, salt++);
-        _leaf.set(leafSeason(wx, wz, rng));
-        const col = g.getAttribute('color');
-        const wind = g.getAttribute('aWind');
-        for (let vi = 0; vi < col.count; vi++) {
-          if (wind.getX(vi) > 0.28) {           // a leaf vertex
-            const j = 0.84 + (((vi * 2654435761) >>> 0) % 1000) / 1000 * 0.32;
-            col.setXYZ(vi, _leaf.r * j, _leaf.g * j, _leaf.b * j);
-          }
-        }
-        geos.push(g);
-
-        trees.push(this._record(tpl, _m.clone(), wx, wz, h, scale));
+    // Rare giant landmark tree — a towering, climbable elder, randomly placed.
+    if (hash2(cx, cz, 80) < 0.12) {
+      const wx = ox + (0.25 + hash2(cx, cz, 81) * 0.5) * size;
+      const wz = oz + (0.25 + hash2(cx, cz, 82) * 0.5) * size;
+      const h = terrainHeight(wx, wz);
+      if (h > WORLD.waterLevel + 1 && terrainSlope(wx, wz) < 0.42) {
+        const ti = (hash2(cx, cz, 83) * TEMPLATES) | 0;
+        const scale = 2.6 + hash2(cx, cz, 84) * 1.3;
+        this._addTree(geos, trees, cx * 131 + 7, cz * 131 + 9, wx, wz, h, scale, hash2(cx, cz, 85) * 6.28, ti);
       }
     }
 
@@ -90,6 +79,29 @@ export class Forest {
       group.add(mesh);
     }
     return trees;
+  }
+
+  // Place one tree (used for both the scattered forest and the rare giant).
+  _addTree(geos, trees, hx, hz, wx, wz, h, scale, rot, ti) {
+    const tpl = this.templates[ti];
+    _m.makeRotationY(rot);
+    _m.scale(_v.set(scale, scale, scale));
+    _m.setPosition(wx, h - 0.3, wz);
+    const g = tpl.geometry.clone();
+    g.applyMatrix4(_m);
+    let salt = 70;
+    const rng = () => hash2(hx, hz, salt++);
+    _leaf.set(leafSeason(wx, wz, rng));
+    const col = g.getAttribute('color');
+    const wind = g.getAttribute('aWind');
+    for (let vi = 0; vi < col.count; vi++) {
+      if (wind.getX(vi) > 0.28) {
+        const j = 0.84 + (((vi * 2654435761) >>> 0) % 1000) / 1000 * 0.32;
+        col.setXYZ(vi, _leaf.r * j, _leaf.g * j, _leaf.b * j);
+      }
+    }
+    geos.push(g);
+    trees.push(this._record(tpl, _m.clone(), wx, wz, h, scale));
   }
 
   _record(tpl, matrix, wx, wz, baseY, scale) {

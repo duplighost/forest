@@ -159,6 +159,40 @@ function glowShroom(rng) {
   return g;
 }
 
+// A balanced stack of stones (a little zen cairn).
+function cairn(rng) {
+  const parts = [];
+  const c = new THREE.Color(COLORS.rock);
+  let y = 0, r = 0.45 + rng() * 0.18;
+  const count = 4 + (rng() * 3 | 0);
+  for (let i = 0; i < count; i++) {
+    const g = new THREE.IcosahedronGeometry(r, 0);
+    const p = g.attributes.position;
+    for (let k = 0; k < p.count; k++) p.setXYZ(k, p.getX(k) * (0.9 + rng() * 0.3), p.getY(k) * (0.58 + rng() * 0.22), p.getZ(k) * (0.9 + rng() * 0.3));
+    g.computeVertexNormals();
+    g.translate((rng() - 0.5) * 0.12, y + r * 0.6, (rng() - 0.5) * 0.12);
+    parts.push(addAttrs(g, c.clone().multiplyScalar(0.78 + rng() * 0.34), 0));
+    y += r * 1.0; r *= 0.76;
+  }
+  return BufferGeometryUtils.mergeGeometries(parts, false);
+}
+
+// A cheerful little snowman (winter biomes only).
+function snowman(rng) {
+  const parts = [];
+  const white = new THREE.Color(0xf3f7fc), coal = new THREE.Color(0x14140f);
+  const sizes = [0.5, 0.36, 0.27];
+  const cy = [];
+  let y = 0;
+  for (const r of sizes) { const g = new THREE.SphereGeometry(r, 12, 10); g.translate(0, y + r, 0); parts.push(addAttrs(g, white, 0)); cy.push(y + r); y += r * 1.65; }
+  const head = cy[2];
+  for (const sx of [-1, 1]) { const e = new THREE.SphereGeometry(0.035, 6, 6); e.translate(sx * 0.09, head + 0.05, 0.23); parts.push(addAttrs(e, coal, 0)); }
+  const nose = new THREE.ConeGeometry(0.035, 0.2, 6); nose.rotateX(Math.PI / 2); nose.translate(0, head, 0.3); parts.push(addAttrs(nose, new THREE.Color(0xe8843c), 0));
+  for (let i = 0; i < 3; i++) { const b = new THREE.SphereGeometry(0.028, 6, 6); b.translate(0, cy[1] - 0.08 + i * 0.11, 0.32); parts.push(addAttrs(b, coal, 0)); }
+  for (const sx of [-1, 1]) { const a = new THREE.CylinderGeometry(0.018, 0.018, 0.46, 4); a.rotateZ(sx * 1.05); a.translate(sx * 0.4, cy[1] + 0.05, 0); parts.push(addAttrs(a, new THREE.Color(0x6b4f3a), 0)); }
+  return BufferGeometryUtils.mergeGeometries(parts, false);
+}
+
 export class Scatter {
   constructor() {
     this.grassGeo = bladeTuft();
@@ -265,6 +299,30 @@ export class Scatter {
         const g = flower(mulberryFrom(hx, hz, 6));
         const s = 0.8 + hash2(hx, hz, 64) * 0.7;
         const m = new THREE.Matrix4().makeRotationY(hash2(hx, hz, 65) * Math.PI * 2);
+        m.scale(new THREE.Vector3(s, s, s)); m.setPosition(wx, h, wz);
+        g.applyMatrix4(m); det.push(g);
+      }
+    }
+
+    // ---- rare landmarks: a stone cairn, and a snowman in winter ----
+    if (hash2(cx, cz, 73) < 0.11) {
+      const wx = ox + (0.2 + hash2(cx, cz, 74) * 0.6) * size, wz = oz + (0.2 + hash2(cx, cz, 75) * 0.6) * size;
+      const h = terrainHeight(wx, wz);
+      if (h > WORLD.waterLevel + 0.3 && terrainSlope(wx, wz) < 0.45) {
+        const g = cairn(mulberryFrom(cx, cz, 7));
+        const s = 0.9 + hash2(cx, cz, 76) * 0.6;
+        const m = new THREE.Matrix4().makeRotationY(hash2(cx, cz, 77) * 6.28);
+        m.scale(new THREE.Vector3(s, s, s)); m.setPosition(wx, h, wz);
+        g.applyMatrix4(m); det.push(g);
+      }
+    }
+    if (snowAt(ox + size / 2, oz + size / 2) > 0.6 && hash2(cx, cz, 78) < 0.3) {
+      const wx = ox + (0.2 + hash2(cx, cz, 79) * 0.6) * size, wz = oz + (0.2 + hash2(cx, cz, 86) * 0.6) * size;
+      const h = terrainHeight(wx, wz);
+      if (h > WORLD.waterLevel + 0.3 && snowAt(wx, wz) > 0.5 && terrainSlope(wx, wz) < 0.4) {
+        const g = snowman(mulberryFrom(cx, cz, 8));
+        const s = 1.0 + hash2(cx, cz, 87) * 0.5;
+        const m = new THREE.Matrix4().makeRotationY(hash2(cx, cz, 88) * 6.28);
         m.scale(new THREE.Vector3(s, s, s)); m.setPosition(wx, h, wz);
         g.applyMatrix4(m); det.push(g);
       }
