@@ -101,6 +101,11 @@ function applyCmd() {
   } else if (cmd === 'sun') {
     camera.yaw = Math.atan2(sky.sunDir.x, sky.sunDir.z);
     camera.pitch = 0.0; camera.distance = 7;
+  } else if (['dawn', 'noon', 'dusk', 'night'].includes(cmd)) {
+    sky.setTime({ dawn: 0.275, noon: 0.5, dusk: 0.71, night: 0.0 }[cmd]);
+    sky.dayLength = 1e9;
+    player.position.y += 30; player.state = 'air'; player.velocity.set(0, 0, 4);
+    camera.yaw = 2.3; camera.pitch = 0.05; camera.distance = 10;
   } else if (cmd === 'face') {
     camera.yaw = Math.PI; camera.pitch = 0.05; camera.distance = 3.0;
   } else if (cmd === 'climb') {
@@ -218,9 +223,11 @@ function frame(now) {
   particles.update(t, engine.camera.position);
   critters.update(dt, player.position);
   backdrop.update(engine.camera.position);
-  sky.update(player.position, engine.camera.position);
-  // sun direction in view space drives the foliage back-light glow
+  sky.update(dt, player.position, engine.camera.position);
+  // keep the water reflection and foliage glow in sync with the moving sun
+  water.uniforms.uSunDir.value.copy(sky.sunDir);
   windUniforms.uSunView.value.copy(sky.sunDir).transformDirection(engine.camera.matrixWorldInverse);
+  windUniforms.uGlowAmt.value = 2.1 * sky.dayAmount;
   updateGodRays();
   ambience.update(dt, player.state, player.speed);
 
@@ -243,8 +250,10 @@ window.__GAME = {
     return {
       ready: true,
       state: player.state,
+      time: +sky.time.toFixed(3),
+      sunElev: +(sky.sunElev ?? 0).toFixed(1),
+      dayAmount: +(sky.dayAmount ?? 0).toFixed(2),
       glide: +squirrel.glide.toFixed(2),
-      pataScale: +squirrel.pata.l.scale.x.toFixed(2),
       pos: player.position.toArray().map((v) => +v.toFixed(1)),
       speed: +player.speed.toFixed(2),
       chunks: world.chunks.size,
