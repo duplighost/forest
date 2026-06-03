@@ -193,6 +193,12 @@ function applyCmd() {
   } else if (cmd === 'deer') {
     camera.distance = 28; camera.pitch = 0.5; camera.yaw = 0.4;
     sky.setTime(0.46); sky.dayLength = 1e9;
+  } else if (cmd === 'thumb') {
+    // clean, pretty card thumbnail: no fog haze, keep bloom/grade, golden light
+    engine.scene.fog.near = 6000; engine.scene.fog.far = 6001;
+    sky.setTime(0.33); sky.dayLength = 1e9;
+    camera.yaw = 2.35; camera.pitch = 0.16; camera.distance = 4.6;
+    player.facing = 0.6;
   } else if (cmd === 'model') {
     // clean model inspection: no fog, no post wash
     engine.bloom.enabled = false; engine.godrays.enabled = false; engine.grade.enabled = false;

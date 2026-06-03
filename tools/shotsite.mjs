@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 
 const ROOT = '/tmp/site';
-const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.json': 'application/json', '.mp3': 'audio/mpeg', '.webmanifest': 'application/manifest+json' };
+const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.json': 'application/json', '.mp3': 'audio/mpeg', '.webmanifest': 'application/manifest+json' };
 const server = createServer(async (req, res) => {
   try {
     let p = decodeURIComponent(req.url.split('?')[0]);
@@ -32,9 +32,12 @@ page.on('pageerror', (e) => errs.push(e.message));
 await page.goto('http://localhost:8099/', { waitUntil: 'load', timeout: 30000 });
 await page.waitForTimeout(1500);
 await page.screenshot({ path: '/tmp/site_top.png' });
-await page.addStyleTag({ content: '.reveal{opacity:1 !important;transform:none !important;}' });
-await page.evaluate(() => document.getElementById('toys')?.scrollIntoView({ block: 'center' }));
-await page.waitForTimeout(900);
+await page.addStyleTag({ content: '.reveal{opacity:1 !important;transform:none !important;visibility:visible !important;}' });
+await page.evaluate(() => {
+  document.querySelectorAll('.reveal').forEach((e) => { e.classList.add('in', 'visible', 'is-visible', 'revealed', 'show', 'active'); });
+  document.getElementById('toys')?.scrollIntoView({ block: 'center' });
+});
+await page.waitForTimeout(1400);
 await page.screenshot({ path: '/tmp/site_toys.png' });
 console.log('errors:', errs.slice(0, 5));
 await browser.close();
