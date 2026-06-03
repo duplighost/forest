@@ -8,10 +8,12 @@ import { Water } from './world/Water.js';
 import { Particles } from './world/Particles.js';
 import { Critters } from './world/Critters.js';
 import { FX } from './world/FX.js';
+import { Backdrop } from './world/Backdrop.js';
 import { terrainHeight, terrainSlope } from './world/Terrain.js';
 import { FollowCamera } from './player/FollowCamera.js';
 import { Squirrel } from './player/Squirrel.js';
 import { Controller } from './player/Controller.js';
+import { windUniforms } from './world/TreeFactory.js';
 import { WORLD, CAMERA } from './config.js';
 
 const engine = new Engine(document.getElementById('app'));
@@ -27,6 +29,7 @@ if (LOW) {
 
 const sky = new SkySystem(engine.scene);
 if (LOW) sky.sun.shadow.mapSize.set(1024, 1024);
+const backdrop = new Backdrop(engine.scene);
 const world = new World(engine.scene);
 const water = new Water(engine.scene, sky.sunDir);
 const particles = new Particles(engine.scene, LOW ? 170 : 320);
@@ -91,6 +94,10 @@ function applyCmd() {
     if (found) { player.position.copy(found); player.state = 'swim'; world.update(player.position); world.buildAllPending(); }
   } else if (cmd === 'vista' || cmd === 'high') {
     camera.distance = 11; camera.pitch = 0.15;
+  } else if (cmd === 'horizon') {
+    player.position.y += 26; player.state = 'air'; player.velocity.set(0, 0, 10);
+    camera.yaw = Math.atan2(-sky.sunDir.x, -sky.sunDir.z); // look away from sun
+    camera.pitch = 0.08; camera.distance = 9;
   } else if (cmd === 'sun') {
     camera.yaw = Math.atan2(sky.sunDir.x, sky.sunDir.z);
     camera.pitch = 0.0; camera.distance = 7;
@@ -204,7 +211,10 @@ function frame(now) {
   water.update(t, engine.camera.position);
   particles.update(t, engine.camera.position);
   critters.update(dt, player.position);
+  backdrop.update(engine.camera.position);
   sky.update(player.position, engine.camera.position);
+  // sun direction in view space drives the foliage back-light glow
+  windUniforms.uSunView.value.copy(sky.sunDir).transformDirection(engine.camera.matrixWorldInverse);
   updateGodRays();
   ambience.update(dt, player.state, player.speed);
 

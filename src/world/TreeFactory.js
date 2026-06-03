@@ -3,10 +3,14 @@ import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js'
 import { mulberry32 } from './Noise.js';
 import { COLORS } from '../config.js';
 
-// Shared wind uniforms — every tree sways from the same global clock.
+// Shared uniforms — every tree sways from the same global clock and glows with
+// the same sun (uSunView is the sun direction in view space, set each frame).
 export const windUniforms = {
   uTime: { value: 0 },
   uWind: { value: 0.22 },
+  uSunView: { value: new THREE.Vector3(0, 0, 1) },
+  uGlowColor: { value: new THREE.Color(0xffe1a0) },
+  uGlowAmt: { value: 2.1 },
 };
 
 // One material for all bark+foliage. Vertex colors carry bark/leaf variation,
@@ -20,12 +24,16 @@ export function makeFoliageMaterial() {
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = windUniforms.uTime;
     shader.uniforms.uWind = windUniforms.uWind;
+    shader.uniforms.uSunView = windUniforms.uSunView;
+    shader.uniforms.uGlowColor = windUniforms.uGlowColor;
+    shader.uniforms.uGlowAmt = windUniforms.uGlowAmt;
     shader.vertexShader =
-      'uniform float uTime;\nuniform float uWind;\nattribute float aWind;\n' +
+      'uniform float uTime;\nuniform float uWind;\nattribute float aWind;\nvarying float vWind;\n' +
       shader.vertexShader.replace(
         '#include <begin_vertex>',
         /* glsl */ `
         #include <begin_vertex>
+        vWind = aWind;
         vec4 _wp = modelMatrix * vec4(transformed, 1.0);
         float _ph = _wp.x * 0.14 + _wp.z * 0.17 + uTime * 1.5;
         float _sway = sin(_ph) + 0.5 * sin(_ph * 2.3 + 1.1);
@@ -33,6 +41,21 @@ export function makeFoliageMaterial() {
         transformed.z += cos(_ph * 0.85 + 0.6) * aWind * uWind * 0.7;
         transformed.y -= abs(_sway) * aWind * uWind * 0.15;
         `
+      );
+    // Fake subsurface scattering: leaves glow warm when backlit by the sun.
+    shader.fragmentShader =
+      'uniform vec3 uSunView;\nuniform vec3 uGlowColor;\nuniform float uGlowAmt;\nvarying float vWind;\n' +
+      shader.fragmentShader.replace(
+        '#include <opaque_fragment>',
+        /* glsl */ `
+        {
+          vec3 _Lv = normalize(uSunView);
+          vec3 _Vv = normalize(vViewPosition);
+          float _trans = pow(max(dot(-_Vv, _Lv), 0.0), 3.0);
+          float _wrap = max(0.0, dot(normal, _Lv) * 0.5 + 0.5);
+          totalEmissiveRadiance += uGlowColor * (_trans * 0.9 + _wrap * 0.12) * uGlowAmt * diffuseColor.rgb * vWind;
+        }
+        #include <opaque_fragment>`
       );
   };
   return mat;
