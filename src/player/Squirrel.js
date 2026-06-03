@@ -1,14 +1,15 @@
 import * as THREE from 'three';
 import { COLORS } from '../config.js';
 
-const fur = new THREE.MeshStandardMaterial({ color: COLORS.squirrel, roughness: 0.85, metalness: 0 });
-const furDark = new THREE.MeshStandardMaterial({ color: 0x6f4a2e, roughness: 0.85 });
-const belly = new THREE.MeshStandardMaterial({ color: COLORS.squirrelBelly, roughness: 0.8 });
-const eyeMat = new THREE.MeshStandardMaterial({ color: 0x140f0c, roughness: 0.18, metalness: 0.1 });
+// Soft white & fluffy, like a real Japanese dwarf flying squirrel (momonga).
+const fur = new THREE.MeshStandardMaterial({ color: 0xe9e8e2, roughness: 0.93, metalness: 0 });
+const furDark = new THREE.MeshStandardMaterial({ color: 0xccc7bc, roughness: 0.9 }); // soft grey accents
+const belly = new THREE.MeshStandardMaterial({ color: 0xf7f5ef, roughness: 0.85 });
+const eyeMat = new THREE.MeshStandardMaterial({ color: 0x0d0b09, roughness: 0.12, metalness: 0.15 });
 const shine = new THREE.MeshBasicMaterial({ color: 0xffffff });
-const noseMat = new THREE.MeshStandardMaterial({ color: 0xc98a8a, roughness: 0.5 });
+const noseMat = new THREE.MeshStandardMaterial({ color: 0xe39bab, roughness: 0.5 });
 const pataMat = new THREE.MeshStandardMaterial({
-  color: 0xceb089, roughness: 0.72, metalness: 0,
+  color: 0xede7da, roughness: 0.8, metalness: 0,
   side: THREE.DoubleSide, transparent: true, opacity: 0.97,
 });
 
@@ -30,46 +31,59 @@ export class Squirrel {
     this.bodyG = new THREE.Group();
     this.group.add(this.bodyG);
 
-    const body = ellipsoid(fur, 0.34, 0.30, 0.5);
+    const body = ellipsoid(fur, 0.36, 0.33, 0.5);
     body.position.y = 0.34;
     this.bodyG.add(body);
-    const bellyM = ellipsoid(belly, 0.27, 0.22, 0.42);
-    bellyM.position.set(0, 0.27, 0.06);
+    const bellyM = ellipsoid(belly, 0.30, 0.25, 0.42);
+    bellyM.position.set(0, 0.26, 0.07);
     this.bodyG.add(bellyM);
+    // fluffy chest ruff around the neck
+    const ruff = ellipsoid(fur, 0.37, 0.33, 0.22, 16);
+    ruff.position.set(0, 0.44, 0.27);
+    this.bodyG.add(ruff);
 
-    // Head — big and round, with enormous eyes.
+    // Head — big and round, with ENORMOUS eyes.
     this.headG = new THREE.Group();
-    this.headG.position.set(0, 0.46, 0.42);
+    this.headG.position.set(0, 0.50, 0.44);
     this.bodyG.add(this.headG);
-    const head = ellipsoid(fur, 0.30, 0.28, 0.27);
+    const head = ellipsoid(fur, 0.33, 0.31, 0.30);
     this.headG.add(head);
-    const cheeks = ellipsoid(belly, 0.24, 0.18, 0.18);
-    cheeks.position.set(0, -0.05, 0.14);
+    const cheeks = ellipsoid(belly, 0.28, 0.22, 0.2);
+    cheeks.position.set(0, -0.06, 0.14);
     this.headG.add(cheeks);
 
-    // Eyes (huge, glossy black) + catchlights.
     for (const sx of [-1, 1]) {
-      const eye = ellipsoid(eyeMat, 0.115, 0.13, 0.115, 18);
-      eye.position.set(sx * 0.16, 0.04, 0.2);
+      // big round cheek fluff (chipmunk-cute)
+      const tuft = ellipsoid(fur, 0.15, 0.14, 0.14, 12);
+      tuft.position.set(sx * 0.25, -0.05, 0.08);
+      this.headG.add(tuft);
+
+      // Eyes — huge, glossy black — with two catchlights for life.
+      const eye = ellipsoid(eyeMat, 0.15, 0.165, 0.145, 20);
+      eye.position.set(sx * 0.165, 0.05, 0.21);
       this.headG.add(eye);
-      const hi = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), shine);
-      hi.position.set(sx * 0.13, 0.09, 0.31);
+      const hi = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 10), shine);
+      hi.position.set(sx * 0.13, 0.11, 0.33);
       this.headG.add(hi);
-      const hi2 = new THREE.Mesh(new THREE.SphereGeometry(0.018, 6, 6), shine);
-      hi2.position.set(sx * 0.19, 0.0, 0.3);
+      const hi2 = new THREE.Mesh(new THREE.SphereGeometry(0.025, 8, 8), shine);
+      hi2.position.set(sx * 0.21, -0.01, 0.31);
       this.headG.add(hi2);
-      // ears — small, round, set high
-      const ear = ellipsoid(furDark, 0.09, 0.11, 0.05, 12);
-      ear.position.set(sx * 0.2, 0.27, 0.0);
-      ear.rotation.z = sx * -0.2;
+
+      // ears — white & fluffy with a pink inner and a little tuft
+      const ear = ellipsoid(fur, 0.105, 0.14, 0.06, 12);
+      ear.position.set(sx * 0.21, 0.30, 0.0);
+      ear.rotation.z = sx * -0.18;
       this.headG.add(ear);
-      const earIn = ellipsoid(noseMat, 0.05, 0.07, 0.03, 10);
-      earIn.position.set(sx * 0.2, 0.27, 0.03);
+      const earIn = ellipsoid(noseMat, 0.055, 0.085, 0.03, 10);
+      earIn.position.set(sx * 0.21, 0.30, 0.035);
       this.headG.add(earIn);
+      const earTuft = ellipsoid(fur, 0.05, 0.07, 0.05, 8);
+      earTuft.position.set(sx * 0.215, 0.42, 0.0);
+      this.headG.add(earTuft);
     }
-    // nose
-    const nose = ellipsoid(noseMat, 0.05, 0.045, 0.05, 10);
-    nose.position.set(0, -0.04, 0.28);
+    // little pink nose
+    const nose = ellipsoid(noseMat, 0.055, 0.05, 0.055, 10);
+    nose.position.set(0, -0.05, 0.30);
     this.headG.add(nose);
 
     // Legs (pivot groups so they can swing / spread).
@@ -120,11 +134,11 @@ export class Squirrel {
     let parent = this.tailG;
     for (let i = 0; i < 7; i++) {
       const seg = new THREE.Group();
-      seg.position.z = i === 0 ? 0 : -0.125;
-      const w = 0.30 + (i < 3 ? i * 0.02 : (6 - i) * 0.02); // bushy middle
-      const h = 0.17 - i * 0.012;
-      const mesh = ellipsoid(i < 6 ? fur : furDark, w, h, 0.19, 12);
-      mesh.position.z = -0.08;
+      seg.position.z = i === 0 ? 0 : -0.135;
+      const w = 0.37 + (i < 3 ? i * 0.03 : (6 - i) * 0.03); // big bushy middle
+      const h = 0.27 - i * 0.014;
+      const mesh = ellipsoid(i < 6 ? fur : furDark, w, h, 0.22, 12);
+      mesh.position.z = -0.09;
       seg.add(mesh);
       parent.add(seg);
       this.tailSegs.push(seg);
