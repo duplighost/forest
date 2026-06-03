@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
-import { mulberry32 } from './Noise.js';
+import { mulberry32, noise3D } from './Noise.js';
 import { COLORS } from '../config.js';
 
 // Shared uniforms — every tree sways from the same global clock and glows with
@@ -100,26 +100,39 @@ function segmentGeometry(a, b, rA, rB, radialSegs, color, windA, windB) {
   return geo;
 }
 
+const _bv = new THREE.Vector3();
+const _btop = new THREE.Color();
+const _bbot = new THREE.Color();
+const _btmp = new THREE.Color();
 function blobGeometry(center, radius, detail, color, wind, squash = 1) {
-  const geo = new THREE.IcosahedronGeometry(radius, detail);
-  // Rough up the surface a touch for an organic, hand-sculpted silhouette.
+  // Higher subdivision + smooth low-frequency noise (not per-vertex spikes) gives
+  // soft, rounded, organic foliage instead of a faceted polygonal clump.
+  const geo = new THREE.IcosahedronGeometry(radius, Math.max(2, detail));
   const p = geo.attributes.position;
-  const rng = mulberry32((center.x * 9301 + center.z * 49297) | 0);
+  const sx = center.x * 0.6 + 11.3, sy = center.y * 0.6 - 4.1, sz = center.z * 0.6 + 7.7;
   for (let i = 0; i < p.count; i++) {
-    const f = 0.82 + rng() * 0.32;
-    p.setXYZ(i, p.getX(i) * f, p.getY(i) * f * squash, p.getZ(i) * f);
+    _bv.set(p.getX(i), p.getY(i), p.getZ(i));
+    const ix = _bv.x / radius, iy = _bv.y / radius, iz = _bv.z / radius; // unit dir
+    // two octaves of smooth noise → gentle billowing lobes, no spikes
+    const lump = 1
+      + noise3D(ix * 1.7 + sx, iy * 1.7 + sy, iz * 1.7 + sz) * 0.17
+      + noise3D(ix * 3.6 - sx, iy * 3.6 + sz, iz * 3.6 - sy) * 0.07;
+    p.setXYZ(i, _bv.x * lump, _bv.y * lump * squash, _bv.z * lump);
   }
-  geo.scale(1, 1, 1);
   geo.translate(center.x, center.y, center.z);
   geo.computeVertexNormals();
+
+  // Vertical gradient: brighter toward the top (sunlit), deeper toward the base.
   const n = p.count;
   const col = new Float32Array(n * 3);
   const w = new Float32Array(n);
-  const cc = color.clone();
+  _btop.copy(color).multiplyScalar(1.16);
+  _bbot.copy(color).multiplyScalar(0.66);
   for (let i = 0; i < n; i++) {
-    // subtle per-vertex tint variation within the canopy
-    const j = 0.9 + ((i * 2654435761) % 100) / 100 * 0.2;
-    col[i * 3] = cc.r * j; col[i * 3 + 1] = cc.g * j; col[i * 3 + 2] = cc.b * j;
+    const ly = THREE.MathUtils.clamp((p.getY(i) - center.y) / radius * 0.6 + 0.5, 0, 1);
+    _btmp.copy(_bbot).lerp(_btop, ly);
+    const j = 0.96 + ((i * 2654435761) % 100) / 100 * 0.08;
+    col[i * 3] = _btmp.r * j; col[i * 3 + 1] = _btmp.g * j; col[i * 3 + 2] = _btmp.b * j;
     w[i] = wind;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
@@ -202,19 +215,26 @@ export function makeTreeTemplate(seed) {
     // a little twig + a leaf cluster at the branch end
     const leafC = leafTint.clone().multiplyScalar(0.85 + rng() * 0.3);
     if (canopyStyle === 'round' || canopyStyle === 'tall' || canopyStyle === 'slim') {
-      parts.push(blobGeometry(b, 1.6 + rng() * 1.1, 1, leafC, 0.7));
+      parts.push(blobGeometry(b, 2.0 + rng() * 1.2, 2, leafC, 0.7));
+      // a second smaller lobe partway along the branch, draping it in leaves
+      const mid = a.clone().lerp(b, 0.62);
+      parts.push(blobGeometry(mid, 1.3 + rng() * 0.7, 2, leafC.clone().multiplyScalar(0.92), 0.55));
     }
   }
 
-  // Crown foliage.
+  // Crown foliage — clusters of soft overlapping lobes for a full, lush canopy.
   const crownColor = leafTint.clone();
   if (canopyStyle === 'round') {
-    parts.push(blobGeometry(top, 3.2 + rng() * 1.2, 1, crownColor, 0.55, 0.9));
-    parts.push(blobGeometry(top.clone().add(new THREE.Vector3(1.2, -1.0, 0.5)), 2.4, 1, crownColor.clone().multiplyScalar(0.9), 0.6));
+    const R = 2.7 + rng() * 0.9;
+    parts.push(blobGeometry(top, R * 1.2, 2, crownColor, 0.55, 0.95));
+    for (let i = 0; i < 4; i++) {
+      const off = new THREE.Vector3((rng() - 0.5) * 3.0, (rng() - 0.45) * 1.8, (rng() - 0.5) * 3.0);
+      parts.push(blobGeometry(top.clone().add(off), R * (0.62 + rng() * 0.34), 2, crownColor.clone().multiplyScalar(0.86 + rng() * 0.22), 0.6, 0.92));
+    }
   } else if (canopyStyle === 'tall') {
-    for (let i = 0; i < 3; i++) {
-      const c = top.clone().add(new THREE.Vector3((rng() - 0.5) * 2.5, -i * 2.2, (rng() - 0.5) * 2.5));
-      parts.push(blobGeometry(c, 2.8 - i * 0.4, 1, crownColor.clone().multiplyScalar(1 - i * 0.06), 0.6, 0.85));
+    for (let i = 0; i < 4; i++) {
+      const c = top.clone().add(new THREE.Vector3((rng() - 0.5) * 3.0, -i * 1.9, (rng() - 0.5) * 3.0));
+      parts.push(blobGeometry(c, 3.0 - i * 0.45, 2, crownColor.clone().multiplyScalar(1 - i * 0.05), 0.6, 0.88));
     }
   } else if (canopyStyle === 'cone') {
     const layers = 4 + ((rng() * 2) | 0);
@@ -227,7 +247,9 @@ export function makeTreeTemplate(seed) {
       parts.push(coneGeo);
     }
   } else { // slim
-    parts.push(blobGeometry(top, 2.0 + rng() * 0.8, 1, crownColor, 0.65));
+    const R = 2.0 + rng() * 0.7;
+    parts.push(blobGeometry(top, R, 2, crownColor, 0.65));
+    parts.push(blobGeometry(top.clone().add(new THREE.Vector3((rng() - 0.5) * 2, -1.4, (rng() - 0.5) * 2)), R * 0.7, 2, crownColor.clone().multiplyScalar(0.88), 0.6));
   }
 
   const geometry = BufferGeometryUtils.mergeGeometries(parts, false);
