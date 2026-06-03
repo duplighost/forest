@@ -105,6 +105,18 @@ const barkA = new THREE.Color(COLORS.trunk);
 const barkB = new THREE.Color(COLORS.trunkLight);
 const leaves = [COLORS.leafA, COLORS.leafB, COLORS.leafC].map((c) => new THREE.Color(c));
 const autumn = new THREE.Color(COLORS.leafAutumn);
+const blossomPink = new THREE.Color(0xf3b6cd);
+const blossomWhite = new THREE.Color(0xfae6ee);
+
+// Pick a canopy tint: mostly greens, with occasional autumn gold and — fitting
+// for a Japanese forest — bursts of cherry-blossom pink and white.
+function pickLeafTint(rng) {
+  const r = rng();
+  if (r < 0.09) return blossomPink.clone();
+  if (r < 0.15) return blossomWhite.clone();
+  if (r < 0.27) return autumn.clone();
+  return leaves[(rng() * leaves.length) | 0].clone();
+}
 
 // Build ONE tree template in local space (base at origin, growing +Y).
 // Returns merged geometry + a climbable skeleton.
@@ -124,7 +136,7 @@ export function makeTreeTemplate(seed) {
   } else {                          // slender, sparse
     trunkH = 10 + rng() * 6; trunkR = 0.3 + rng() * 0.2; canopyStyle = 'slim';
   }
-  leafTint = rng() < 0.15 ? autumn : pick(leaves);
+  leafTint = pickLeafTint(rng);
 
   const barkColor = barkA.clone().lerp(barkB, rng() * 0.6);
   const parts = [];
