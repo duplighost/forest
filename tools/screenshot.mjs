@@ -67,7 +67,7 @@ page.on('console', (m) => {
   const t = m.type();
   if (t === 'error' || t === 'warning') errors.push(`[${t}] ${m.text()}`);
 });
-page.on('pageerror', (e) => errors.push(`[pageerror] ${e.message}`));
+page.on('pageerror', (e) => errors.push(`[pageerror] ${e.message}\n${e.stack || ''}`));
 
 try {
   await page.goto(url, { waitUntil: 'load', timeout: 60000 });

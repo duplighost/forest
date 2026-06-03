@@ -8,6 +8,7 @@ import { COLORS } from '../config.js';
 export const windUniforms = {
   uTime: { value: 0 },
   uWind: { value: 0.22 },
+  uGust: { value: 0 },          // global gust swell (0 = calm)
   uSunView: { value: new THREE.Vector3(0, 0, 1) },
   uGlowColor: { value: new THREE.Color(0xffe1a0) },
   uGlowAmt: { value: 1.35 },
@@ -24,22 +25,24 @@ export function makeFoliageMaterial() {
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = windUniforms.uTime;
     shader.uniforms.uWind = windUniforms.uWind;
+    shader.uniforms.uGust = windUniforms.uGust;
     shader.uniforms.uSunView = windUniforms.uSunView;
     shader.uniforms.uGlowColor = windUniforms.uGlowColor;
     shader.uniforms.uGlowAmt = windUniforms.uGlowAmt;
     shader.vertexShader =
-      'uniform float uTime;\nuniform float uWind;\nattribute float aWind;\nvarying float vWind;\n' +
+      'uniform float uTime;\nuniform float uWind;\nuniform float uGust;\nattribute float aWind;\nvarying float vWind;\n' +
       shader.vertexShader.replace(
         '#include <begin_vertex>',
         /* glsl */ `
         #include <begin_vertex>
         vWind = aWind;
+        float _w = uWind * (1.0 + uGust * 2.5);
         vec4 _wp = modelMatrix * vec4(transformed, 1.0);
-        float _ph = _wp.x * 0.14 + _wp.z * 0.17 + uTime * 1.5;
+        float _ph = _wp.x * 0.14 + _wp.z * 0.17 + uTime * (1.5 + uGust * 2.0);
         float _sway = sin(_ph) + 0.5 * sin(_ph * 2.3 + 1.1);
-        transformed.x += _sway * aWind * uWind;
-        transformed.z += cos(_ph * 0.85 + 0.6) * aWind * uWind * 0.7;
-        transformed.y -= abs(_sway) * aWind * uWind * 0.15;
+        transformed.x += _sway * aWind * _w;
+        transformed.z += cos(_ph * 0.85 + 0.6) * aWind * _w * 0.7;
+        transformed.y -= abs(_sway) * aWind * _w * 0.15;
         `
       );
     // Fake subsurface scattering: leaves glow warm when backlit by the sun.

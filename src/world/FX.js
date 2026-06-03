@@ -83,6 +83,12 @@ export class FX {
         0xcdbd97, 0.7 + Math.random() * 0.8, 0.5 + Math.random() * 0.3, 1.5);
     }
   }
+  // a single leaf/petal carried on the wind
+  windLeaf(x, y, z, color, wx, wz) {
+    this._emit(x, y, z,
+      wx + (Math.random() - 0.5) * 2.5, -0.4 + Math.random() * 0.6, wz + (Math.random() - 0.5) * 2.5,
+      color, 0.45 + Math.random() * 0.45, 3 + Math.random() * 2.5, 1.1);
+  }
   footDust(p) {
     for (let i = 0; i < 2; i++) {
       const a = Math.random() * Math.PI * 2, s = 0.3 + Math.random() * 0.9;

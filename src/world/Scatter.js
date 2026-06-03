@@ -17,14 +17,16 @@ function makeGrassMaterial() {
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uTime = grassWind.uTime;
     sh.uniforms.uWind = grassWind.uWind;
-    sh.vertexShader = 'uniform float uTime;\nuniform float uWind;\nattribute float aTip;\n' +
+    sh.uniforms.uGust = windUniforms.uGust;
+    sh.vertexShader = 'uniform float uTime;\nuniform float uWind;\nuniform float uGust;\nattribute float aTip;\n' +
       sh.vertexShader.replace('#include <begin_vertex>', /* glsl */ `
         #include <begin_vertex>
+        float gw = uWind * (1.0 + uGust * 3.0);
         vec3 ipos = instanceMatrix[3].xyz;
-        float ph = ipos.x * 0.2 + ipos.z * 0.22 + uTime * 1.9;
-        float s = (sin(ph) + 0.4 * sin(ph * 2.3 + 1.0)) * uWind;
+        float ph = ipos.x * 0.2 + ipos.z * 0.22 + uTime * (1.9 + uGust * 2.5);
+        float s = (sin(ph) + 0.4 * sin(ph * 2.3 + 1.0)) * gw;
         transformed.x += s * aTip;
-        transformed.z += cos(ph * 0.9 + 0.5) * uWind * aTip * 0.6;
+        transformed.z += cos(ph * 0.9 + 0.5) * gw * aTip * 0.6;
       `);
   };
   return m;

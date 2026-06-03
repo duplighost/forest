@@ -11,8 +11,9 @@ import { FX } from './world/FX.js';
 import { Backdrop } from './world/Backdrop.js';
 import { Weather } from './world/Weather.js';
 import { Wildlife } from './world/Wildlife.js';
+import { Fireflies } from './world/Fireflies.js';
 import { terrainHeight, terrainSlope } from './world/Terrain.js';
-import { seasonIndex } from './world/Biome.js';
+import { seasonIndex, leafSeason } from './world/Biome.js';
 import { FollowCamera } from './player/FollowCamera.js';
 import { Squirrel } from './player/Squirrel.js';
 import { Controller } from './player/Controller.js';
@@ -39,6 +40,7 @@ const water = new Water(engine.scene, sky.sunDir);
 const particles = new Particles(engine.scene, LOW ? 170 : 320);
 const critters = new Critters(engine.scene, LOW ? 4 : 7);
 const wildlife = new Wildlife(engine.scene, LOW ? { flocks: 1, deer: 3 } : { flocks: 2, deer: 5 });
+const fireflies = new Fireflies(engine.scene, LOW ? 80 : 130);
 const fx = new FX(engine.scene);
 const camera = new FollowCamera(engine.camera, input);
 const squirrel = new Squirrel();
@@ -142,6 +144,8 @@ function applyCmd() {
     player.position.y += 22; player.state = 'air'; player.velocity.set(0, 0, 5);
     camera.yaw = 2.1; camera.pitch = 0.12; camera.distance = 10;
     sky.setTime(0.4); sky.dayLength = 1e9;
+  } else if (cmd === 'fireflies') {
+    sky.setTime(0.95); sky.dayLength = 1e9; camera.distance = 7; camera.pitch = 0.04;
   } else if (cmd === 'deer') {
     camera.distance = 28; camera.pitch = 0.5; camera.yaw = 0.4;
     sky.setTime(0.46); sky.dayLength = 1e9;
@@ -227,6 +231,7 @@ function updateGodRays() {
 
 let tPrev = null;
 let _trailT = 0;
+let _leafT = 0;
 let deerFramed = false;
 function frame(now) {
   if (tPrev === null) tPrev = now;
@@ -262,8 +267,21 @@ function frame(now) {
   world.update_anim(t);
   water.update(t, engine.camera.position);
   particles.update(t, engine.camera.position);
+  // Wind gusts: an irregular swell that bends grass & trees and carries leaves.
+  const gust = Math.max(0, Math.sin(t * 0.23) * 0.5 + Math.sin(t * 0.11 + 1.3) * 0.34 + Math.sin(t * 0.063) * 0.3);
+  windUniforms.uGust.value = gust * 0.85;
+  _leafT -= dt;
+  if (gust > 0.55 && _leafT <= 0 && player.state !== 'swim') {
+    _leafT = 0.12;
+    const wx = -7 * gust, wz = 3 * gust;
+    const col = leafSeason(player.position.x, player.position.z, Math.random);
+    fx.windLeaf(player.position.x + (Math.random() - 0.5) * 24, player.position.y + 5 + Math.random() * 8,
+      player.position.z + (Math.random() - 0.5) * 24, col, wx, wz);
+  }
+
   critters.update(dt, player.position);
   wildlife.update(dt, player.position, t);
+  fireflies.update(dt, t, player.position, sky.dayAmount);
   if (cmd === 'deer' && !deerFramed) {
     const d = wildlife.deer[0];
     d.pos.set(player.position.x, terrainHeight(player.position.x, player.position.z + 18), player.position.z + 18);
