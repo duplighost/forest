@@ -10,6 +10,7 @@ import { Critters } from './world/Critters.js';
 import { FX } from './world/FX.js';
 import { Backdrop } from './world/Backdrop.js';
 import { Weather } from './world/Weather.js';
+import { Wildlife } from './world/Wildlife.js';
 import { terrainHeight, terrainSlope } from './world/Terrain.js';
 import { seasonIndex } from './world/Biome.js';
 import { FollowCamera } from './player/FollowCamera.js';
@@ -37,6 +38,7 @@ const world = new World(engine.scene);
 const water = new Water(engine.scene, sky.sunDir);
 const particles = new Particles(engine.scene, LOW ? 170 : 320);
 const critters = new Critters(engine.scene, LOW ? 4 : 7);
+const wildlife = new Wildlife(engine.scene, LOW ? { flocks: 1, deer: 3 } : { flocks: 2, deer: 5 });
 const fx = new FX(engine.scene);
 const camera = new FollowCamera(engine.camera, input);
 const squirrel = new Squirrel();
@@ -140,6 +142,9 @@ function applyCmd() {
     player.position.y += 22; player.state = 'air'; player.velocity.set(0, 0, 5);
     camera.yaw = 2.1; camera.pitch = 0.12; camera.distance = 10;
     sky.setTime(0.4); sky.dayLength = 1e9;
+  } else if (cmd === 'deer') {
+    camera.distance = 28; camera.pitch = 0.5; camera.yaw = 0.4;
+    sky.setTime(0.46); sky.dayLength = 1e9;
   } else if (cmd === 'face') {
     camera.yaw = Math.PI; camera.pitch = 0.05; camera.distance = 3.0;
     sky.setTime(0.5); sky.dayLength = 1e9; // high sun, not behind the squirrel
@@ -222,6 +227,7 @@ function updateGodRays() {
 
 let tPrev = null;
 let _trailT = 0;
+let deerFramed = false;
 function frame(now) {
   if (tPrev === null) tPrev = now;
   let dt = (now - tPrev) / 1000;
@@ -257,6 +263,14 @@ function frame(now) {
   water.update(t, engine.camera.position);
   particles.update(t, engine.camera.position);
   critters.update(dt, player.position);
+  wildlife.update(dt, player.position, t);
+  if (cmd === 'deer' && !deerFramed) {
+    const d = wildlife.deer[0];
+    d.pos.set(player.position.x, terrainHeight(player.position.x, player.position.z + 18), player.position.z + 18);
+    d.placed = true; d.heading = Math.PI; d.graze = 1;
+    camera.yaw = 0; camera.distance = 5.5; camera.pitch = 0.14; // look +z (sun behind)
+    deerFramed = true;
+  }
   backdrop.update(engine.camera.position);
   weather.update(dt, engine.camera.position, sky.cloudTint);
   sky.update(dt, player.position, engine.camera.position, weather.cloudiness);
