@@ -20,10 +20,11 @@ export class FollowCamera {
     this._initialized = false;
   }
 
-  // Basis for camera-relative movement (flat XZ).
+  // Basis for camera-relative movement (flat XZ). The camera sits behind the
+  // player looking along +forward, so screen-right is -(up × forward).
   updateBasis() {
     this.forward.set(Math.sin(this.yaw), 0, Math.cos(this.yaw));
-    this.right.set(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
+    this.right.set(-Math.cos(this.yaw), 0, Math.sin(this.yaw));
   }
 
   // Phase 1: consume look input → yaw/pitch/zoom + movement basis.
