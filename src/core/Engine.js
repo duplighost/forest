@@ -6,6 +6,48 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { CAMERA, COLORS, WORLD } from '../config.js';
 
+// Crepuscular light shafts: march each pixel toward the sun's screen position
+// and smear bright background (sky seen through the canopy) into golden rays.
+const GodRayShader = {
+  uniforms: {
+    tDiffuse: { value: null },
+    uSun: { value: new THREE.Vector2(0.5, 0.85) },
+    uIntensity: { value: 0.0 },
+    uColor: { value: new THREE.Color(COLORS.sun) },
+  },
+  vertexShader: /* glsl */ `
+    varying vec2 vUv;
+    void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }
+  `,
+  fragmentShader: /* glsl */ `
+    varying vec2 vUv;
+    uniform sampler2D tDiffuse;
+    uniform vec2 uSun;
+    uniform float uIntensity;
+    uniform vec3 uColor;
+    void main(){
+      vec3 base = texture2D(tDiffuse, vUv).rgb;
+      if (uIntensity <= 0.001) { gl_FragColor = vec4(base, 1.0); return; }
+      vec2 dir = (uSun - vUv);
+      const int N = 28;
+      vec2 stp = dir / float(N) * 0.9;
+      vec2 uv = vUv;
+      float decay = 1.0;
+      vec3 accum = vec3(0.0);
+      for (int i = 0; i < N; i++) {
+        uv += stp;
+        vec3 s = texture2D(tDiffuse, clamp(uv, 0.0, 1.0)).rgb;
+        float l = max(0.0, max(s.r, max(s.g, s.b)) - 0.62);
+        accum += s * l * decay;
+        decay *= 0.93;
+      }
+      accum /= float(N);
+      vec3 col = base + accum * uColor * uIntensity * 5.0;
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `,
+};
+
 // Final cosmetic grade: gentle vignette + warm lift + a touch of saturation.
 // Runs after tone-mapping/sRGB so it works in display space.
 const GradeShader = {
@@ -92,6 +134,9 @@ export class Engine {
     this.composer.addPass(this.bloom);
 
     this.composer.addPass(new OutputPass());
+
+    this.godrays = new ShaderPass(GodRayShader);
+    this.composer.addPass(this.godrays);
 
     this.grade = new ShaderPass(GradeShader);
     this.composer.addPass(this.grade);

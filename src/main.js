@@ -1,15 +1,18 @@
 import * as THREE from 'three';
 import { Engine } from './core/Engine.js';
 import { Input } from './core/Input.js';
+import { Ambience } from './core/Audio.js';
 import { SkySystem } from './world/Sky.js';
 import { World } from './world/World.js';
 import { Water } from './world/Water.js';
 import { Particles } from './world/Particles.js';
+import { Critters } from './world/Critters.js';
+import { FX } from './world/FX.js';
 import { terrainHeight, terrainSlope } from './world/Terrain.js';
 import { FollowCamera } from './player/FollowCamera.js';
 import { Squirrel } from './player/Squirrel.js';
 import { Controller } from './player/Controller.js';
-import { WORLD } from './config.js';
+import { WORLD, CAMERA } from './config.js';
 
 const engine = new Engine(document.getElementById('app'));
 const input = new Input(engine.renderer.domElement);
@@ -27,6 +30,8 @@ if (LOW) sky.sun.shadow.mapSize.set(1024, 1024);
 const world = new World(engine.scene);
 const water = new Water(engine.scene, sky.sunDir);
 const particles = new Particles(engine.scene, LOW ? 170 : 320);
+const critters = new Critters(engine.scene, LOW ? 4 : 7);
+const fx = new FX(engine.scene);
 const camera = new FollowCamera(engine.camera, input);
 const squirrel = new Squirrel();
 engine.scene.add(squirrel.group);
@@ -58,9 +63,11 @@ function start() {
   veil.classList.add('hidden');
   setTimeout(() => { if (!interacted) hint.classList.add('show'); }, 1400);
 }
+const ambience = new Ambience();
 function interact() {
   interacted = true;
   hint.classList.add('gone');
+  ambience.start();
 }
 for (const ev of ['keydown', 'pointerdown', 'touchstart', 'wheel']) {
   window.addEventListener(ev, interact, { once: true });
@@ -72,7 +79,7 @@ function applyCmd() {
   if (cmd === 'glide' || cmd === 'air') {
     player.position.y += 22; player.state = 'air';
     player.velocity.set(0, 1, 15); player.pitch = -0.12;
-    camera.distance = 4.2; camera.pitch = 0.06;
+    camera.distance = 5.0; camera.pitch = 0.55;
   } else if (cmd === 'swim') {
     // drop the player into the nearest water body
     let found = null;
@@ -84,6 +91,9 @@ function applyCmd() {
     if (found) { player.position.copy(found); player.state = 'swim'; world.update(player.position); world.buildAllPending(); }
   } else if (cmd === 'vista' || cmd === 'high') {
     camera.distance = 11; camera.pitch = 0.15;
+  } else if (cmd === 'sun') {
+    camera.yaw = Math.atan2(sky.sunDir.x, sky.sunDir.z);
+    camera.pitch = 0.0; camera.distance = 7;
   } else if (cmd === 'face') {
     camera.yaw = Math.PI; camera.pitch = 0.05; camera.distance = 3.0;
   } else if (cmd === 'climb') {
@@ -147,6 +157,22 @@ function adapt(dt) {
   }
 }
 
+// Project the sun to screen space to drive the light-shaft pass; fade it out
+// as you look away from the sun.
+const _sunWorld = new THREE.Vector3();
+const _camFwd = new THREE.Vector3();
+function updateGodRays() {
+  _sunWorld.copy(engine.camera.position).addScaledVector(sky.sunDir, 1000);
+  _sunWorld.project(engine.camera);
+  engine.camera.getWorldDirection(_camFwd);
+  const facing = _camFwd.dot(sky.sunDir);
+  const onScreen = _sunWorld.z < 1 && Math.abs(_sunWorld.x) < 1.6 && Math.abs(_sunWorld.y) < 1.6;
+  const inten = onScreen ? THREE.MathUtils.smoothstep(facing, 0.1, 0.7) * 0.7 : 0;
+  const u = engine.godrays.uniforms;
+  u.uSun.value.set(_sunWorld.x * 0.5 + 0.5, _sunWorld.y * 0.5 + 0.5);
+  u.uIntensity.value += (inten - u.uIntensity.value) * 0.08;
+}
+
 let tPrev = null;
 function frame(now) {
   if (tPrev === null) tPrev = now;
@@ -160,16 +186,34 @@ function frame(now) {
   if (cmd === 'test') runTest(dt);
 
   camera.updateLook(dt);
+  const prevState = player.state;
   const anim = player.update(dt, input, camera);
+  // Movement juice: react to state changes with little particle bursts.
+  if (player.state !== prevState) {
+    if (player.state === 'swim') fx.splash(player.position);
+    else if (player.state === 'ground' && (prevState === 'air' || prevState === 'swim')) fx.dust(player.position);
+    else if (player.state === 'climb') fx.leaves(player.position);
+  }
   player.applyTransform(squirrel.group, dt);
   squirrel.update(dt, anim);
   camera.follow(dt, player);
+  fx.update(dt);
 
   world.update(player.position);
   world.update_anim(t);
   water.update(t, engine.camera.position);
   particles.update(t, engine.camera.position);
+  critters.update(dt, player.position);
   sky.update(player.position, engine.camera.position);
+  updateGodRays();
+  ambience.update(dt, player.state, player.speed);
+
+  // Speed rush: widen the FOV a touch as you pick up glide speed.
+  const targetFov = CAMERA.fov + THREE.MathUtils.clamp((player.speed - 12) / 18, 0, 1) * 11;
+  if (Math.abs(engine.camera.fov - targetFov) > 0.01) {
+    engine.camera.fov += (targetFov - engine.camera.fov) * (1 - Math.exp(-3 * dt));
+    engine.camera.updateProjectionMatrix();
+  }
 
   engine.render();
   if (!started && now > 150) start();
@@ -183,6 +227,8 @@ window.__GAME = {
     return {
       ready: true,
       state: player.state,
+      glide: +squirrel.glide.toFixed(2),
+      pataScale: +squirrel.pata.l.scale.x.toFixed(2),
       pos: player.position.toArray().map((v) => +v.toFixed(1)),
       speed: +player.speed.toFixed(2),
       chunks: world.chunks.size,

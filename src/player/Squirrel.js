@@ -8,8 +8,8 @@ const eyeMat = new THREE.MeshStandardMaterial({ color: 0x140f0c, roughness: 0.18
 const shine = new THREE.MeshBasicMaterial({ color: 0xffffff });
 const noseMat = new THREE.MeshStandardMaterial({ color: 0xc98a8a, roughness: 0.5 });
 const pataMat = new THREE.MeshStandardMaterial({
-  color: COLORS.patagium, roughness: 0.7, metalness: 0,
-  side: THREE.DoubleSide, transparent: true, opacity: 0.96,
+  color: 0xceb089, roughness: 0.72, metalness: 0,
+  side: THREE.DoubleSide, transparent: true, opacity: 0.97,
 });
 
 function ellipsoid(mat, rx, ry, rz, seg = 16) {
@@ -99,10 +99,10 @@ export class Squirrel {
     this.pata = {};
     for (const sx of [-1, 1]) {
       const shape = new THREE.Shape();
-      shape.moveTo(0, 0.30);
-      shape.quadraticCurveTo(sx * 0.75, 0.34, sx * 0.92, 0.0);
-      shape.quadraticCurveTo(sx * 0.7, -0.4, 0, -0.34);
-      shape.lineTo(0, 0.30);
+      shape.moveTo(0, 0.34);
+      shape.quadraticCurveTo(sx * 0.9, 0.40, sx * 1.08, 0.02);
+      shape.quadraticCurveTo(sx * 0.82, -0.46, 0, -0.40);
+      shape.lineTo(0, 0.34);
       const g = new THREE.ShapeGeometry(shape, 12);
       const m = new THREE.Mesh(g, pataMat);
       m.rotation.x = -Math.PI / 2;
@@ -152,7 +152,7 @@ export class Squirrel {
     const cT = info.state === 'climb' ? 1 : 0;
     const sT = info.state === 'swim' ? 1 : 0;
     const k = (a, b, r) => a + (b - a) * (1 - Math.exp(-r * dt));
-    this.glide = k(this.glide, gT, 9);
+    this.glide = k(this.glide, gT, 12);
     this.climb = k(this.climb, cT, 10);
     this.swim = k(this.swim, sT, 8);
     const moving = THREE.MathUtils.clamp(info.speed / 8, 0, 1);
