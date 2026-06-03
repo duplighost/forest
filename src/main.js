@@ -9,6 +9,7 @@ import { Particles } from './world/Particles.js';
 import { Critters } from './world/Critters.js';
 import { FX } from './world/FX.js';
 import { Backdrop } from './world/Backdrop.js';
+import { Weather } from './world/Weather.js';
 import { terrainHeight, terrainSlope } from './world/Terrain.js';
 import { seasonIndex } from './world/Biome.js';
 import { FollowCamera } from './player/FollowCamera.js';
@@ -31,6 +32,7 @@ if (LOW) {
 const sky = new SkySystem(engine.scene);
 if (LOW) sky.sun.shadow.mapSize.set(1024, 1024);
 const backdrop = new Backdrop(engine.scene);
+const weather = new Weather(engine.scene, { drops: LOW ? 1400 : 2600 });
 const world = new World(engine.scene);
 const water = new Water(engine.scene, sky.sunDir);
 const particles = new Particles(engine.scene, LOW ? 170 : 320);
@@ -121,6 +123,23 @@ function applyCmd() {
       camera.yaw = 2.1; camera.pitch = 0.16; camera.distance = 10;
       sky.setTime(0.32); sky.dayLength = 1e9;
     }
+  } else if (['rain', 'storm', 'cloudy', 'snow'].includes(cmd)) {
+    if (cmd === 'snow') { // place in a winter biome
+      let found = null;
+      for (let r = 0; r < 3500 && !found; r += 36)
+        for (let a = 0; a < 6.28; a += 0.25) {
+          const x = Math.cos(a) * r, z = Math.sin(a) * r;
+          if (seasonIndex(x, z) === 3 && terrainHeight(x, z) > WORLD.waterLevel + 1) { found = new THREE.Vector3(x, terrainHeight(x, z), z); break; }
+        }
+      if (found) { player.position.copy(found); world.update(found); world.buildAllPending(); }
+      weather.snowing = 1;
+    }
+    weather._cloudTarget = weather.cloudiness = cmd === 'cloudy' ? 0.72 : 0.95;
+    weather._wetTarget = weather.wetness = cmd === 'cloudy' ? 0 : (cmd === 'storm' ? 1.0 : 0.8);
+    weather._timer = 1e9;
+    player.position.y += 22; player.state = 'air'; player.velocity.set(0, 0, 5);
+    camera.yaw = 2.1; camera.pitch = 0.12; camera.distance = 10;
+    sky.setTime(0.4); sky.dayLength = 1e9;
   } else if (cmd === 'face') {
     camera.yaw = Math.PI; camera.pitch = 0.05; camera.distance = 3.0;
     sky.setTime(0.5); sky.dayLength = 1e9; // high sun, not behind the squirrel
@@ -195,7 +214,7 @@ function updateGodRays() {
   engine.camera.getWorldDirection(_camFwd);
   const facing = _camFwd.dot(sky.sunDir);
   const onScreen = _sunWorld.z < 1 && Math.abs(_sunWorld.x) < 1.6 && Math.abs(_sunWorld.y) < 1.6;
-  const inten = onScreen ? THREE.MathUtils.smoothstep(facing, 0.3, 0.85) * 0.5 : 0;
+  const inten = onScreen ? THREE.MathUtils.smoothstep(facing, 0.3, 0.85) * 0.5 * (1 - weather.cloudiness * 0.85) : 0;
   const u = engine.godrays.uniforms;
   u.uSun.value.set(_sunWorld.x * 0.5 + 0.5, _sunWorld.y * 0.5 + 0.5);
   u.uIntensity.value += (inten - u.uIntensity.value) * 0.08;
@@ -239,13 +258,14 @@ function frame(now) {
   particles.update(t, engine.camera.position);
   critters.update(dt, player.position);
   backdrop.update(engine.camera.position);
-  sky.update(dt, player.position, engine.camera.position);
+  weather.update(dt, engine.camera.position, sky.cloudTint);
+  sky.update(dt, player.position, engine.camera.position, weather.cloudiness);
   // keep the water reflection and foliage glow in sync with the moving sun
   water.uniforms.uSunDir.value.copy(sky.sunDir);
   windUniforms.uSunView.value.copy(sky.sunDir).transformDirection(engine.camera.matrixWorldInverse);
-  windUniforms.uGlowAmt.value = 2.1 * sky.dayAmount;
+  windUniforms.uGlowAmt.value = 1.35 * sky.dayAmount * (1 - weather.cloudiness * 0.7);
   updateGodRays();
-  ambience.update(dt, player.state, player.speed);
+  ambience.update(dt, player.state, player.speed, weather.wetness);
 
   // Speed rush: widen the FOV a touch as you pick up glide speed.
   const targetFov = CAMERA.fov + THREE.MathUtils.clamp((player.speed - 12) / 18, 0, 1) * 11;

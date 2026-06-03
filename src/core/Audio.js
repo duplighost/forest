@@ -61,6 +61,14 @@ export class Ambience {
     this.waterGain.gain.value = 0.0;
     this.noise.connect(this.waterFilter).connect(this.waterGain).connect(this.master);
 
+    // rain: a brighter hiss branch, opened by wetness
+    this.rainFilter = ctx.createBiquadFilter();
+    this.rainFilter.type = 'highpass';
+    this.rainFilter.frequency.value = 1100;
+    this.rainGain = ctx.createGain();
+    this.rainGain.gain.value = 0.0;
+    this.noise.connect(this.rainFilter).connect(this.rainGain).connect(this.master);
+
     // soft evolving pad — a quiet, warm chord
     this.padGain = ctx.createGain();
     this.padGain.gain.value = 0.06;
@@ -112,9 +120,10 @@ export class Ambience {
     g.gain.setValueAtTime(0.5, t);
   }
 
-  update(dt, state, speed) {
+  update(dt, state, speed, wetness = 0) {
     if (!this.started || !this.ctx) return;
     const ctx = this.ctx;
+    this.rainGain.gain.setTargetAtTime(wetness * 0.5, ctx.currentTime, 0.4);
     // glide wind-rush: open the filter and swell the wind with speed
     const rush = state === 'air' ? Math.min(1, Math.max(0, (speed - 8) / 22)) : 0;
     const targetWind = 0.5 + rush * 1.1;

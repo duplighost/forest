@@ -16,7 +16,7 @@ const STOPS = [
   { e: 40,  sunI: 3.1,  sunC: 0xffeece, hemiI: 0.78, hSky: 0xb4d2ee, hGnd: 0x55603a, fog: 0xb0c2a4, star: 0.0,  skyMul: 1.0 },
 ];
 
-const _cA = new THREE.Color(), _cB = new THREE.Color();
+const _cA = new THREE.Color(), _cB = new THREE.Color(), _grey = new THREE.Color();
 function lerpStops(elev) {
   let a = STOPS[0], b = STOPS[STOPS.length - 1];
   for (let i = 0; i < STOPS.length - 1; i++) {
@@ -62,6 +62,7 @@ export class SkySystem {
 
     this.sunDir = new THREE.Vector3(0, 1, 0);
     this.moonDir = new THREE.Vector3(0, 1, 0);
+    this.cloudTint = new THREE.Color(0xffffff); // colour for the weather clouds
 
     this.sun = new THREE.DirectionalLight(0xfff1cf, 3.0);
     this.sun.castShadow = true;
@@ -138,7 +139,7 @@ export class SkySystem {
     this.scene.add(this.moon);
   }
 
-  update(dt, playerPos, cameraPos) {
+  update(dt, playerPos, cameraPos, cloudiness = 0) {
     this.time = (this.time + dt / this.dayLength) % 1;
     const TAU = Math.PI * 2;
 
@@ -163,9 +164,9 @@ export class SkySystem {
     this.sky.material.uniforms.mieCoefficient.value = 0.003 + (1 - p.skyMul) * 0.004;
     this.sky.material.uniforms.uNightDim.value = Math.max(0.04, p.skyMul);
 
-    // Sun (key) light.
+    // Sun (key) light — dimmed under cloud.
     this.sun.color.copy(p.sunC);
-    this.sun.intensity = p.sunI;
+    this.sun.intensity = p.sunI * (1 - cloudiness * 0.6);
     this.sun.position.copy(playerPos).addScaledVector(this.sunDir, this._shadowDist);
     this.sun.target.position.copy(playerPos);
     this.sun.target.updateMatrixWorld();
@@ -179,9 +180,13 @@ export class SkySystem {
     this.fill.intensity = 0.12 + p.skyMul * 0.18;
     this.fill.position.copy(playerPos).addScaledVector(this.moonDir, 40);
 
-    // Fog + background follow the sky.
-    if (this.scene.fog) this.scene.fog.color.copy(p.fog);
-    if (this.scene.background) this.scene.background.copy(p.fog);
+    // Fog + background follow the sky, greying under cloud.
+    _grey.set(0x9a9f9c).multiplyScalar(0.35 + this.dayAmount * 0.65);
+    if (this.scene.fog) { this.scene.fog.color.copy(p.fog).lerp(_grey, cloudiness * 0.5); }
+    if (this.scene.background) this.scene.background.copy(this.scene.fog.color);
+
+    // Cloud tint: warm/white by day, dark at night, toned by the sun colour.
+    this.cloudTint.set(0xffffff).lerp(p.sunC, 0.4).multiplyScalar(0.18 + this.dayAmount * 0.82);
 
     // Stars fade in; moon rises.
     this.starMat.uniforms.uOpacity.value = p.star;
