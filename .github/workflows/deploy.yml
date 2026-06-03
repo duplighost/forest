@@ -1,0 +1,29 @@
+name: Deploy to Netlify
+
+# Builds the game on GitHub's runners (which have open internet) and deploys to
+# Netlify. The deploy step only runs once you've added two repo secrets:
+#   NETLIFY_AUTH_TOKEN  – Netlify → User settings → Applications → New access token
+#   NETLIFY_SITE_ID     – the target site's API ID (Site settings → General)
+# Until then the build still runs green; it just skips the deploy.
+
+on:
+  push:
+    branches: ["claude/vibrant-ptolemy-n5QxF", "main"]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+      NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run build
+      - name: Deploy to Netlify
+        if: ${{ env.NETLIFY_AUTH_TOKEN != '' && env.NETLIFY_SITE_ID != '' }}
+        run: npx --yes netlify-cli@17 deploy --prod --dir=dist --message "Deploy ${{ github.sha }}"

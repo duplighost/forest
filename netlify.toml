@@ -1,0 +1,20 @@
+# Netlify build settings (used if you connect the repo in the Netlify UI or via
+# the GitHub Actions workflow). For "Netlify Drop", just drag the built dist/
+# folder onto https://app.netlify.com/drop — no build step needed.
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# Long-cache the hashed assets; always revalidate the entry HTML.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
