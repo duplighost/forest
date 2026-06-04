@@ -17,6 +17,9 @@ import { PondLife } from './world/PondLife.js';
 import { Streaks } from './world/Streaks.js';
 import { Wisp } from './world/Wisp.js';
 import { Aurora } from './world/Aurora.js';
+import { ShootingStars } from './world/ShootingStars.js';
+import { GroundFog } from './world/GroundFog.js';
+import { Hollow } from './world/Hollow.js';
 import { snowAt, flowerAt } from './world/Biome.js';
 import { terrainHeight, terrainSlope } from './world/Terrain.js';
 import { seasonIndex, leafSeason, seasonAt } from './world/Biome.js';
@@ -42,6 +45,8 @@ const sky = new SkySystem(engine.scene);
 if (LOW) sky.sun.shadow.mapSize.set(1024, 1024);
 const backdrop = new Backdrop(engine.scene);
 const aurora = new Aurora(engine.scene);
+const shootingStars = new ShootingStars(engine.scene, LOW ? 2 : 3);
+const groundFog = new GroundFog(engine.scene);
 const weather = new Weather(engine.scene, { drops: LOW ? 1400 : 2600 });
 const world = new World(engine.scene);
 const water = new Water(engine.scene, sky.sunDir);
@@ -54,6 +59,7 @@ const fx = new FX(engine.scene);
 const pondlife = new PondLife(engine.scene, fx);
 const streaks = new Streaks(engine.scene, LOW ? 50 : 90);
 const wisp = new Wisp(engine.scene);
+const hollow = new Hollow(engine.scene);
 const _vdir = new THREE.Vector3();
 const camera = new FollowCamera(engine.camera, input);
 const squirrel = new Squirrel();
@@ -101,7 +107,9 @@ const idleEl = document.getElementById('idle');
 const photoEl = document.getElementById('photo');
 const shutterEl = document.getElementById('shutter');
 const flashEl = document.getElementById('flash');
+const cozyEl = document.getElementById('cozy');
 let idleT = 0, photoMode = false, captureNext = false;
+let restAmt = 0;   // 0..1 how curled-up-and-resting in a hollow the player is
 function setPhoto(on) {
   photoMode = on;
   photoEl.classList.toggle('show', on);
@@ -299,6 +307,47 @@ function applyCmd() {
       camera.yaw = 0.7; camera.pitch = -0.55; camera.distance = 8;  // low cam, look up
       sky.setTime(0.0); sky.dayLength = 1e9;
     }
+  } else if (cmd === 'fog') {
+    // dawn mist pooling in a low valley by the water
+    let found = null;
+    for (let r = 8; r < 380 && !found; r += 8)
+      for (let a = 0; a < 6.28; a += 0.35) {
+        const x = spawn.x + Math.cos(a) * r, z = spawn.z + Math.sin(a) * r;
+        if (terrainHeight(x, z) < WORLD.waterLevel - 1.0) { found = new THREE.Vector3(x, WORLD.waterLevel, z); break; }
+      }
+    if (found) {
+      const dir = new THREE.Vector3(spawn.x - found.x, 0, spawn.z - found.z).normalize();
+      let p = found, bestH = -1e9;
+      for (let s = 10; s < 40; s += 2) {       // a ridge vantage above the valley
+        const px = found.x + dir.x * s, pz = found.z + dir.z * s;
+        const h = terrainHeight(px, pz);
+        if (h > WORLD.waterLevel + 0.4 && h > bestH) { bestH = h; p = new THREE.Vector3(px, h, pz); }
+      }
+      player.position.copy(p); world.update(p); world.buildAllPending();
+      camera.yaw = Math.atan2(found.x - p.x, found.z - p.z);
+      camera.pitch = 0.3; camera.distance = 8; sky.setTime(0.235); sky.dayLength = 1e9;
+    }
+  } else if (cmd === 'hollow') {
+    // find the nearest giant (replaying its placement test) and curl up there
+    let g = null, best = 1e9; const size = WORLD.chunkSize;
+    for (let cz = -6; cz <= 6; cz++) for (let cx = -6; cx <= 6; cx++) {
+      if (hash2(cx, cz, 80) >= 0.12) continue;
+      const wx = cx * size + (0.25 + hash2(cx, cz, 81) * 0.5) * size;
+      const wz = cz * size + (0.25 + hash2(cx, cz, 82) * 0.5) * size;
+      const h = terrainHeight(wx, wz);
+      if (h > WORLD.waterLevel + 1 && terrainSlope(wx, wz) < 0.42) {
+        const d = wx * wx + wz * wz;
+        if (d < best) { best = d; g = new THREE.Vector3(wx, h, wz); }
+      }
+    }
+    if (g) {
+      const ang = Math.atan2(-g.x, -g.z);   // origin-ward side of the trunk
+      player.position.set(g.x + Math.sin(ang) * 1.6, g.y, g.z + Math.cos(ang) * 1.6);
+      world.update(player.position); world.buildAllPending();
+      camera.yaw = Math.atan2(g.x - player.position.x, g.z - player.position.z);
+      camera.pitch = 0.1; camera.distance = 4.4; sky.setTime(0.72); sky.dayLength = 1e9;
+      restAmt = 1;
+    }
   }
 }
 applyCmd();
@@ -369,6 +418,7 @@ let tPrev = null;
 let _trailT = 0;
 let _leafT = 0;
 let _flowerT = 0;
+let _dandeT = 0;
 let deerFramed = false;
 function frame(now) {
   if (tPrev === null) tPrev = now;
@@ -394,6 +444,23 @@ function frame(now) {
   if (anim.land > 0) camera.addShake(0.25 + anim.land * 0.55);
   if (player.state === 'air' && player.speed > 21) camera.addShake(dt * (player.speed - 21) / 9 * 0.5);
   player.applyTransform(squirrel.group, dt);
+  // Cosy hollow: curl up to rest at the base of a giant tree when you hold still.
+  let giant = null, gd = 1e9;
+  for (const tr of world.activeTrees) {
+    if (!tr.giant) continue;
+    const d = Math.hypot(tr.x - player.position.x, tr.z - player.position.z);
+    if (d < gd) { gd = d; giant = tr; }
+  }
+  let hollowProx = 0, atHollow = false;
+  if (giant) {
+    hollowProx = THREE.MathUtils.clamp(1 - (gd - giant.trunkRadius) / 3.5, 0, 1);
+    atHollow = gd < giant.trunkRadius + 2.4 && player.state === 'ground' &&
+      Math.abs(player.position.y - giant.baseY) < 2.6;
+  }
+  const stillEnough = player.speed < 1.3 && input.move.lengthSq() < 0.01 && !input.action;
+  const wantRest = atHollow && stillEnough && started;
+  restAmt += ((wantRest ? 1 : 0) - restAmt) * (1 - Math.exp(-(wantRest ? 1.3 : 3.0) * dt));
+  anim.rest = restAmt;
   squirrel.update(dt, anim);
   camera.follow(dt, player);
   footprints.update(dt, player, snowAt(player.position.x, player.position.z) > 0.5);
@@ -429,6 +496,16 @@ function frame(now) {
     fx.windLeaf(player.position.x + (Math.random() - 0.5) * 24, player.position.y + 5 + Math.random() * 8,
       player.position.z + (Math.random() - 0.5) * 24, col, wx, wz);
   }
+  // brushing through grass on dry ground puffs dandelion seeds into the wind
+  _dandeT -= dt;
+  if (player.state === 'ground' && player.speed > 5 && _dandeT <= 0 &&
+      snowAt(player.position.x, player.position.z) < 0.4 &&
+      terrainHeight(player.position.x, player.position.z) > WORLD.waterLevel + 0.5 &&
+      Math.random() < 0.5) {
+    _dandeT = 0.5 + Math.random() * 0.6;
+    fx.dandelion(player.position.x, player.position.y + 0.3, player.position.z, -6 * gust - 1, 3 * gust);
+    if (Math.random() < 0.5) ambience.puff();
+  }
 
   critters.update(dt, player.position, player.speed);
   wildlife.update(dt, player.position, t);
@@ -454,6 +531,11 @@ function frame(now) {
   const winter = THREE.MathUtils.smoothstep(snowAt(player.position.x, player.position.z), 0.25, 0.8);
   const nightAmt = THREE.MathUtils.clamp(1 - sky.dayAmount * 1.4, 0, 1);
   aurora.update(engine.camera.position, t, winter * nightAmt * (1 - weather.cloudiness * 0.7));
+  // shooting stars streak across clear nights
+  shootingStars.update(dt, engine.camera.position, nightAmt, 1 - weather.cloudiness);
+  // ground mist pools in the valleys when the sun is low (dawn / dusk / night)
+  const lowSun = 1 - THREE.MathUtils.smoothstep(sky.sunElev ?? 0, -4, 12);
+  groundFog.update(engine.camera.position, t, lowSun * (1 - weather.wetness * 0.5));
   // keep the water reflection and foliage glow in sync with the moving sun
   water.uniforms.uSunDir.value.copy(sky.sunDir);
   water.uniforms.uRain.value = weather.wetness * (1 - weather.snowing);
@@ -464,6 +546,12 @@ function frame(now) {
   ambience.glide(dt, player.state === 'air', player.speed);
   ambience.wisp(dt, wInfo.near);
   if (wInfo.darted) ambience.wispDart();
+  // cosy hollow: nook glow, warm music swell, vignette, drifting sleep motes
+  hollow.update(dt, giant && hollowProx > 0.02 ? giant : null, player.position, hollowProx, restAmt);
+  ambience.setCozy(restAmt);
+  cozyEl.style.opacity = (restAmt * 0.92).toFixed(3);
+  if (restAmt > 0.55 && Math.random() < dt * 2.2)
+    fx.sparkle({ x: player.position.x + (Math.random() - 0.5), y: player.position.y + 0.7, z: player.position.z + (Math.random() - 0.5) }, 0xffd9a0);
 
   // Speed rush: widen the FOV a touch as you pick up glide speed.
   const targetFov = CAMERA.fov + THREE.MathUtils.clamp((player.speed - 10) / 18, 0, 1) * 15;
@@ -488,7 +576,7 @@ function frame(now) {
 
   // idle breathing vignette (not while moving or in photo mode)
   if (!cmd) {
-    const activeNow = player.speed > 0.6 || input.move.lengthSq() > 0.01 || input.action || photoMode || !started;
+    const activeNow = player.speed > 0.6 || input.move.lengthSq() > 0.01 || input.action || photoMode || !started || restAmt > 0.05;
     if (activeNow) { idleT = 0; if (!photoMode) idleEl.classList.remove('show'); }
     else { idleT += dt; if (idleT > 5) idleEl.classList.add('show'); }
   }
@@ -499,7 +587,7 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 window.__GAME = {
-  engine, world, sky, player, camera, squirrel, input, critters, wisp, aurora,
+  engine, world, sky, player, camera, squirrel, input, critters, wisp, aurora, shootingStars, groundFog, hollow,
   debugInfo() {
     return {
       ready: true,

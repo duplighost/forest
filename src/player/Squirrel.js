@@ -250,5 +250,18 @@ export class Squirrel {
       const br = 1 + Math.sin(t * 2.4) * 0.025 * stillness;
       this.bodyG.scale.y *= br;
     }
+
+    // --- Curl up to rest (in a cosy hollow): tuck, wrap the tail, drift off ---
+    const rest = info.rest || 0;
+    if (rest > 0.001) {
+      this.bodyG.scale.multiplyScalar(1 - 0.10 * rest);
+      this.bodyG.scale.y *= (1 - 0.08 * rest) * (1 + Math.sin(t * 1.2) * 0.05 * rest); // slow deep breaths
+      this.headG.rotation.x = THREE.MathUtils.lerp(this.headG.rotation.x, 0.55, rest);  // nose tucked down
+      this.headG.position.y = THREE.MathUtils.lerp(this.headG.position.y, 0.4, rest);
+      for (let i = 0; i < this.tailSegs.length; i++)
+        this.tailSegs[i].rotation.x = THREE.MathUtils.lerp(this.tailSegs[i].rotation.x, 0.7 + i * 0.25, rest); // tail wraps up
+      for (const e of this.eyes) e.scale.y *= (1 - 0.85 * rest);  // drowsy eyes
+      if (rest > 0.5) for (const s of this.shines) s.visible = false;
+    }
   }
 }

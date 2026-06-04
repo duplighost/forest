@@ -107,6 +107,14 @@ export class FX {
         color, 0.3 + Math.random() * 0.4, 0.5 + Math.random() * 0.5, 1.0);
     }
   }
+  // a soft puff of dandelion seeds drifting up and away on the wind
+  dandelion(x, y, z, wx, wz) {
+    for (let i = 0; i < 8; i++) {
+      this._emit(x + (Math.random() - 0.5) * 0.5, y + Math.random() * 0.4, z + (Math.random() - 0.5) * 0.5,
+        wx + (Math.random() - 0.5) * 1.4, 0.4 + Math.random() * 0.9, wz + (Math.random() - 0.5) * 1.4,
+        0xfbfcf4, 0.28 + Math.random() * 0.22, 3.5 + Math.random() * 2.5, -0.25);
+    }
+  }
   footDust(p) {
     for (let i = 0; i < 2; i++) {
       const a = Math.random() * Math.PI * 2, s = 0.3 + Math.random() * 0.9;

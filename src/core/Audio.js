@@ -122,6 +122,26 @@ export class Ambience {
       o.connect(g).connect(this.wispGain);
       o.start();
     });
+
+    // cosy "hearth" swell — a warm low chord that fades in while you rest
+    this.cozyGain = ctx.createGain();
+    this.cozyGain.gain.value = 0;
+    this.cozyGain.connect(this.master);
+    [110.0, 164.81, 220.0].forEach((f, i) => {
+      const o = ctx.createOscillator();
+      o.type = i === 0 ? 'sine' : 'triangle';
+      o.frequency.value = f;
+      const g = ctx.createGain();
+      g.gain.value = 0.4 / (i + 1);
+      o.connect(g).connect(this.cozyGain);
+      o.start();
+    });
+
+    // short airy noise buffer reused for dandelion "puff" sounds
+    const pl = Math.floor(0.4 * ctx.sampleRate);
+    this._puffBuf = ctx.createBuffer(1, pl, ctx.sampleRate);
+    const pd = this._puffBuf.getChannelData(0);
+    for (let i = 0; i < pl; i++) pd[i] = (Math.random() * 2 - 1) * (1 - i / pl);
   }
 
   // Called each frame with the spirit's proximity (0..1); swells the shimmer.
@@ -136,6 +156,28 @@ export class Ambience {
     const hi = [880.0, 1046.5, 1318.5, 1567.98];
     this._bell(0.05, hi[(Math.random() * 2) | 0]);
     setTimeout(() => this._bell(0.045, hi[2 + ((Math.random() * 2) | 0)]), 95);
+  }
+
+  // A soft airy "fff" when you brush a dandelion into seed.
+  puff() {
+    if (!this.started || !this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const src = ctx.createBufferSource(); src.buffer = this._puffBuf;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass';
+    bp.frequency.value = 1400 + Math.random() * 700; bp.Q.value = 0.8;
+    const g = ctx.createGain(); g.gain.value = 0;
+    src.connect(bp).connect(g).connect(this.master);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.05, t + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.0008, t + 0.35);
+    src.start(t); src.stop(t + 0.4);
+  }
+
+  // Swell the warm hearth chord as the player curls up to rest (amt 0..1).
+  setCozy(amt) {
+    if (!this.started || !this.ctx) return;
+    this.cozyGain.gain.setTargetAtTime(amt * 0.09, this.ctx.currentTime, 0.4);
+    this.padGain.gain.setTargetAtTime(0.06 + amt * 0.06, this.ctx.currentTime, 0.5);
   }
 
   // A soft bell note from a warm pentatonic scale (used for glide chimes).

@@ -66,6 +66,7 @@ export class Forest {
         const ti = (hash2(cx, cz, 83) * TEMPLATES) | 0;
         const scale = 2.6 + hash2(cx, cz, 84) * 1.3;
         this._addTree(geos, trees, cx * 131 + 7, cz * 131 + 9, wx, wz, h, scale, hash2(cx, cz, 85) * 6.28, ti);
+        trees[trees.length - 1].giant = true;   // a cosy hollow lives at its base
       }
     }
 

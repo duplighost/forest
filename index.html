@@ -67,6 +67,15 @@
       }
       @keyframes idlebob { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-9px); } }
 
+      /* Cosy hollow: a warm vignette that swells as you curl up to rest. */
+      #cozy {
+        position: fixed; inset: 0; z-index: 7; pointer-events: none; opacity: 0;
+        transition: opacity 0.8s ease;
+        background:
+          radial-gradient(120% 110% at 50% 58%, rgba(255,180,90,0.10) 0%, rgba(0,0,0,0) 42%),
+          radial-gradient(125% 118% at 50% 52%, rgba(0,0,0,0) 40%, rgba(38,20,8,0.62) 100%);
+      }
+
       /* Photo mode: a slim cinematic frame + wordless shutter button. */
       #photo { position: fixed; inset: 0; z-index: 8; pointer-events: none; opacity: 0; transition: opacity 0.5s ease; }
       #photo.show { opacity: 1; }
@@ -88,6 +97,7 @@
   <body>
     <div id="app"></div>
     <div id="veil"><div class="orb"></div></div>
+    <div id="cozy"></div>
     <div id="idle"></div>
     <div id="photo"><div class="bar top"></div><div class="bar bottom"></div></div>
     <button id="shutter" aria-label="capture"></button>
