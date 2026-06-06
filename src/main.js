@@ -253,6 +253,12 @@ function applyCmd() {
     sky.setTime(0.5); sky.dayLength = 1e9;
     camera.yaw = Math.PI; camera.pitch = 0.28; camera.distance = 4.0;
     player.facing = 0;
+  } else if (cmd === 'cute') {
+    // close 3/4 portrait to show the face (blush/nose/smile), well lit
+    engine.scene.fog.near = 6000; engine.scene.fog.far = 6001;
+    sky.setTime(0.62); sky.dayLength = 1e9;
+    camera.yaw = Math.PI; camera.pitch = -0.08; camera.distance = 1.9;
+    player.facing = 0.5;
   } else if (cmd === 'climb') {
     let tree = null, best = Infinity;
     for (const tr of world.activeTrees) {

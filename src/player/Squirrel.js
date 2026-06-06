@@ -1,16 +1,22 @@
 import * as THREE from 'three';
 
 // Soft, plush Japanese dwarf flying squirrel (momonga): a chibi build with a big
-// round head, small body, huge glossy eyes, a soft patagium cape, and ONE fluffy
-// flattened plume tail (broad overlapping tufts — not a chain of segments).
-const fur = new THREE.MeshStandardMaterial({ color: 0xc3b7a3, roughness: 0.95, metalness: 0 }); // soft grey-brown
-const furTip = new THREE.MeshStandardMaterial({ color: 0xa89a85, roughness: 0.95 });            // darker accents
-const belly = new THREE.MeshStandardMaterial({ color: 0xe9dcc4, roughness: 0.92 });             // soft cream (kept below bloom)
-const eyeMat = new THREE.MeshStandardMaterial({ color: 0x0c0a08, roughness: 0.1, metalness: 0.15 });
+// round head, huge glossy sparkle eyes, rosy blush cheeks and a tiny smile, a
+// soft patagium cape, and ONE fluffy flattened plume tail. Cuteness over realism.
+const fur = new THREE.MeshStandardMaterial({ color: 0xd6c1a4, roughness: 0.95, metalness: 0 }); // warm soft fawn
+const furTip = new THREE.MeshStandardMaterial({ color: 0xb89a78, roughness: 0.95 });            // warm tail accent
+const belly = new THREE.MeshStandardMaterial({ color: 0xf6efdf, roughness: 0.9 });              // bright cream face/belly
+const eyeMat = new THREE.MeshStandardMaterial({ color: 0x161016, roughness: 0.06, metalness: 0.25 }); // glossy sparkle
 const shine = new THREE.MeshBasicMaterial({ color: 0xffffff });
-const noseMat = new THREE.MeshStandardMaterial({ color: 0xe79aab, roughness: 0.5 });
+const noseMat = new THREE.MeshStandardMaterial({ color: 0xff8fa6, roughness: 0.45 });            // candy-pink nose
+const innerPink = new THREE.MeshStandardMaterial({ color: 0xffb3c6, roughness: 0.55 });          // bright ear pink
+const blushMat = new THREE.MeshStandardMaterial({
+  color: 0xff8fa0, roughness: 0.7, transparent: true, opacity: 0.8,
+  emissive: 0x6a1224, emissiveIntensity: 0.28,                                                   // rosy glow cheeks
+});
+const mouthMat = new THREE.MeshStandardMaterial({ color: 0x5e3338, roughness: 0.5 });
 const pataMat = new THREE.MeshStandardMaterial({
-  color: 0xe3d8c2, roughness: 0.85, metalness: 0,
+  color: 0xeadcc4, roughness: 0.85, metalness: 0,
   side: THREE.DoubleSide, transparent: true, opacity: 0.95,
 });
 
@@ -36,49 +42,58 @@ export class Squirrel {
     bellyM.position.set(0, 0.25, 0.07);
     this.bodyG.add(bellyM);
 
-    // --- Head: BIG and round, sitting forward & up (chibi) ---
+    // --- Head: BIG and round, sitting forward & up (extra chibi) ---
     this.headG = new THREE.Group();
-    this.headG.position.set(0, 0.55, 0.24);
+    this.headG.position.set(0, 0.57, 0.25);
     this.bodyG.add(this.headG);
-    const head = ellipsoid(fur, 0.36, 0.35, 0.33);
+    const head = ellipsoid(fur, 0.41, 0.40, 0.37);
     this.headG.add(head);
-    const face = ellipsoid(belly, 0.28, 0.24, 0.22);   // cream muzzle/face
-    face.position.set(0, -0.05, 0.16);
+    const face = ellipsoid(belly, 0.31, 0.27, 0.23);   // big cream muzzle/face
+    face.position.set(0, -0.05, 0.17);
     this.headG.add(face);
 
     this.eyes = []; this.shines = []; this.ears = [];
     for (const sx of [-1, 1]) {
       // soft cheek fluff
-      const cheek = ellipsoid(fur, 0.14, 0.14, 0.13, 12);
-      cheek.position.set(sx * 0.27, -0.05, 0.04);
+      const cheek = ellipsoid(fur, 0.16, 0.16, 0.15, 12);
+      cheek.position.set(sx * 0.30, -0.05, 0.05);
       this.headG.add(cheek);
 
-      // huge glossy black eye + two white catchlights
-      const eye = ellipsoid(eyeMat, 0.155, 0.175, 0.15, 20);
-      eye.position.set(sx * 0.16, 0.05, 0.245);
+      // HUGE glossy eye + a big sparkle and a little one
+      const eye = ellipsoid(eyeMat, 0.185, 0.215, 0.175, 22);
+      eye.position.set(sx * 0.175, 0.05, 0.265);
       this.headG.add(eye); this.eyes.push(eye);
-      const hi = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 10), shine);
-      hi.position.set(sx * 0.12, 0.13, 0.37);
+      const hi = new THREE.Mesh(new THREE.SphereGeometry(0.078, 12, 12), shine);
+      hi.position.set(sx * 0.135, 0.14, 0.40);
       this.headG.add(hi); this.shines.push(hi);
-      const hi2 = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 8), shine);
-      hi2.position.set(sx * 0.215, -0.02, 0.35);
+      const hi2 = new THREE.Mesh(new THREE.SphereGeometry(0.034, 8, 8), shine);
+      hi2.position.set(sx * 0.245, -0.02, 0.38);
       this.headG.add(hi2); this.shines.push(hi2);
 
-      // small round ear (pivot group for twitch) with pink inner
+      // rosy blush cheek — the big cuteness pop
+      const blush = ellipsoid(blushMat, 0.105, 0.078, 0.055, 12);
+      blush.position.set(sx * 0.235, -0.06, 0.245);
+      this.headG.add(blush);
+
+      // round ear (pivot group for twitch) with bright pink inner
       const ear = new THREE.Group();
-      ear.position.set(sx * 0.2, 0.27, -0.02); ear.userData.sx = sx;
+      ear.position.set(sx * 0.22, 0.31, -0.02); ear.userData.sx = sx;
       this.headG.add(ear); this.ears.push(ear);
-      const earOuter = ellipsoid(fur, 0.115, 0.13, 0.06, 12);
-      earOuter.position.set(0, 0.1, 0); earOuter.rotation.z = sx * -0.14;
+      const earOuter = ellipsoid(fur, 0.13, 0.15, 0.07, 12);
+      earOuter.position.set(0, 0.11, 0); earOuter.rotation.z = sx * -0.14;
       ear.add(earOuter);
-      const earInner = ellipsoid(noseMat, 0.06, 0.075, 0.03, 10);
-      earInner.position.set(0, 0.1, 0.035);
+      const earInner = ellipsoid(innerPink, 0.07, 0.088, 0.035, 10);
+      earInner.position.set(0, 0.11, 0.04);
       ear.add(earInner);
     }
-    // tiny pink nose
-    const nose = ellipsoid(noseMat, 0.05, 0.045, 0.05, 10);
-    nose.position.set(0, -0.03, 0.31);
+    // tiny pink nose + a little smile
+    const nose = ellipsoid(noseMat, 0.065, 0.057, 0.063, 12);
+    nose.position.set(0, -0.04, 0.345);
     this.headG.add(nose);
+    const smile = new THREE.Mesh(new THREE.TorusGeometry(0.058, 0.017, 8, 18, Math.PI), mouthMat);
+    smile.position.set(0, -0.14, 0.32);
+    smile.rotation.z = Math.PI;          // flip the half-ring into a ∪ smile
+    this.headG.add(smile);
 
     // --- Tiny paws (pivot groups; kept for run/glide/swim animation) ---
     this.legs = {};
@@ -124,9 +139,9 @@ export class Squirrel {
     this.bodyG.add(this.tailG);
     this.tailSegs = [];
     const tufts = [
-      { mat: fur, w: 0.29, h: 0.15, d: 0.22, z: 0.0, off: -0.09 },
-      { mat: fur, w: 0.33, h: 0.18, d: 0.26, z: -0.17, off: -0.11 },
-      { mat: furTip, w: 0.25, h: 0.15, d: 0.22, z: -0.19, off: -0.10 },
+      { mat: fur, w: 0.34, h: 0.18, d: 0.26, z: 0.0, off: -0.10 },
+      { mat: fur, w: 0.40, h: 0.22, d: 0.31, z: -0.19, off: -0.13 },
+      { mat: furTip, w: 0.31, h: 0.18, d: 0.27, z: -0.22, off: -0.12 },
     ];
     let parent = this.tailG;
     for (const t of tufts) {
