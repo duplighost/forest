@@ -28,6 +28,52 @@ function ellipsoid(mat, rx, ry, rz, seg = 16) {
   return m;
 }
 
+// --- Shell fur ------------------------------------------------------------
+// One fur shell: the same geometry pushed out along its normals by `frac`, with
+// a procedural strand cutout so each "strand" only survives up to its random
+// height — stacked shells read as soft, tufted fluff that tapers to the tips.
+const _furV = 'uniform float uOff;\nvarying vec3 vFP;\n';
+const _furF =
+  'uniform float uFrac;\nuniform float uDensity;\nvarying vec3 vFP;\n' +
+  'float h31(vec3 p){return fract(sin(dot(p,vec3(41.3,289.1,123.7)))*43758.5453);}\n';
+function furShell(geo, baseMat, frac, furLen, density) {
+  const m = baseMat.clone();
+  m.alphaTest = 0.5;
+  m.transparent = false;
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.uOff = { value: frac * furLen };
+    sh.uniforms.uFrac = { value: frac };
+    sh.uniforms.uDensity = { value: density };
+    sh.vertexShader = _furV + sh.vertexShader
+      .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\n  vFP = position;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n  transformed += normalize(objectNormal) * uOff;');
+    sh.fragmentShader = _furF + sh.fragmentShader.replace(
+      '#include <alphatest_fragment>',
+      '  { vec3 cell = floor(vFP * uDensity); float strand = h31(cell);\n' +
+      '    diffuseColor.a *= step(uFrac, strand);\n' +                    // cut strands shorter than this shell
+      '    diffuseColor.rgb *= 0.82 + 0.18 * (uFrac / max(strand, 0.001)); }\n' + // a touch darker at the roots
+      '#include <alphatest_fragment>'
+    );
+  };
+  m.needsUpdate = true;
+  const mesh = new THREE.Mesh(geo, m);
+  mesh.castShadow = false;
+  return mesh;
+}
+
+// A plush, fuzzy ellipsoid: a solid core plus a few fur shells.
+function furBall(mat, rx, ry, rz, seg = 16, shells = 5) {
+  const g = new THREE.SphereGeometry(1, seg, seg);
+  g.scale(rx, ry, rz);
+  const grp = new THREE.Group();
+  const base = new THREE.Mesh(g, mat); base.castShadow = true;
+  grp.add(base);
+  const furLen = 0.13 * (rx + ry + rz) / 3;
+  const density = 46;
+  for (let i = 1; i <= shells; i++) grp.add(furShell(g, mat, i / shells, furLen, density));
+  return grp;
+}
+
 export class Squirrel {
   constructor() {
     this.group = new THREE.Group();
@@ -35,7 +81,7 @@ export class Squirrel {
     this.group.add(this.bodyG);
 
     // --- Body: small plush oval ---
-    const body = ellipsoid(fur, 0.30, 0.28, 0.33);
+    const body = furBall(fur, 0.30, 0.28, 0.33);
     body.position.set(0, 0.30, -0.02);
     this.bodyG.add(body);
     const bellyM = ellipsoid(belly, 0.25, 0.22, 0.27);
@@ -46,7 +92,7 @@ export class Squirrel {
     this.headG = new THREE.Group();
     this.headG.position.set(0, 0.57, 0.25);
     this.bodyG.add(this.headG);
-    const head = ellipsoid(fur, 0.41, 0.40, 0.37);
+    const head = furBall(fur, 0.41, 0.40, 0.37);
     this.headG.add(head);
     const face = ellipsoid(belly, 0.31, 0.27, 0.23);   // big cream muzzle/face
     face.position.set(0, -0.05, 0.17);
@@ -55,7 +101,7 @@ export class Squirrel {
     this.eyes = []; this.shines = []; this.ears = [];
     for (const sx of [-1, 1]) {
       // soft cheek fluff
-      const cheek = ellipsoid(fur, 0.16, 0.16, 0.15, 12);
+      const cheek = furBall(fur, 0.16, 0.16, 0.15, 12);
       cheek.position.set(sx * 0.30, -0.05, 0.05);
       this.headG.add(cheek);
 
@@ -147,7 +193,7 @@ export class Squirrel {
     for (const t of tufts) {
       const seg = new THREE.Group();
       seg.position.z = t.z;
-      const mesh = ellipsoid(t.mat, t.w, t.h, t.d, 14);
+      const mesh = furBall(t.mat, t.w, t.h, t.d, 14);
       mesh.position.z = t.off;
       seg.add(mesh);
       parent.add(seg);
