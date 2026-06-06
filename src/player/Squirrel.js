@@ -20,6 +20,11 @@ const pataMat = new THREE.MeshStandardMaterial({
   side: THREE.DoubleSide, transparent: true, opacity: 0.95,
 });
 
+// Shared by every fur shell so one update sways the whole coat. uSwayAmt rises
+// with motion: a faint idle shimmer at rest, a windswept ripple while running
+// and gliding (tips trail back).
+const furUniforms = { uTime: { value: 0 }, uSwayAmt: { value: 0 } };
+
 function ellipsoid(mat, rx, ry, rz, seg = 16) {
   const g = new THREE.SphereGeometry(1, seg, seg);
   g.scale(rx, ry, rz);
@@ -32,7 +37,7 @@ function ellipsoid(mat, rx, ry, rz, seg = 16) {
 // One fur shell: the same geometry pushed out along its normals by `frac`, with
 // a procedural strand cutout so each "strand" only survives up to its random
 // height — stacked shells read as soft, tufted fluff that tapers to the tips.
-const _furV = 'uniform float uOff;\nvarying vec3 vFP;\n';
+const _furV = 'uniform float uOff;\nuniform float uFrac;\nuniform float uTime;\nuniform float uSwayAmt;\nvarying vec3 vFP;\n';
 const _furF =
   'uniform float uFrac;\nuniform float uDensity;\nvarying vec3 vFP;\n' +
   'float h31(vec3 p){return fract(sin(dot(p,vec3(41.3,289.1,123.7)))*43758.5453);}\n';
@@ -44,9 +49,20 @@ function furShell(geo, baseMat, frac, furLen, density) {
     sh.uniforms.uOff = { value: frac * furLen };
     sh.uniforms.uFrac = { value: frac };
     sh.uniforms.uDensity = { value: density };
+    sh.uniforms.uTime = furUniforms.uTime;        // shared → one update sways every shell
+    sh.uniforms.uSwayAmt = furUniforms.uSwayAmt;
     sh.vertexShader = _furV + sh.vertexShader
       .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\n  vFP = position;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\n  transformed += normalize(objectNormal) * uOff;');
+      .replace('#include <begin_vertex>',
+        '#include <begin_vertex>\n' +
+        '  transformed += normalize(objectNormal) * uOff;\n' +
+        '  { float tip = uFrac;\n' +                                  // outer shells (tips) move most
+        '    float w = uTime * (2.0 + uSwayAmt * 3.0);\n' +
+        '    vec3 rip = vec3(sin(w + position.y*7.0 + position.z*5.0),\n' +
+        '                    sin(w*0.8 + position.x*6.0) * 0.4,\n' +
+        '                    cos(w*1.1 + position.x*6.0 + position.y*4.0));\n' +
+        '    transformed += rip * ((0.008 + 0.030 * uSwayAmt) * tip);\n' +  // idle shimmer → motion ripple
+        '    transformed.z -= uSwayAmt * tip * 0.035; }');                  // tips trail backward when moving
     sh.fragmentShader = _furF + sh.fragmentShader.replace(
       '#include <alphatest_fragment>',
       '  { vec3 cell = floor(vFP * uDensity); float strand = h31(cell);\n' +
@@ -223,6 +239,13 @@ export class Squirrel {
     const k = (a, b, r) => a + (b - a) * (1 - Math.exp(-r * dt));
     this.glide = k(this.glide, gT, 12);
     this.climb = k(this.climb, cT, 10);
+
+    // fur sway: faint shimmer at rest, windswept ripple while moving/gliding
+    const swayT = Math.min(1, THREE.MathUtils.clamp(info.speed / 14, 0, 1) * (gT ? 1.0 : 0.85)
+      + Math.abs(info.turn || 0) * 0.25);
+    this._fsway = k(this._fsway || 0, swayT, 6);
+    furUniforms.uTime.value = t;
+    furUniforms.uSwayAmt.value = this._fsway;
     this.swim = k(this.swim, sT, 8);
     const moving = THREE.MathUtils.clamp(info.speed / 8, 0, 1);
     this.runW = k(this.runW, moving * (1 - this.glide) * (1 - this.swim), 8);
